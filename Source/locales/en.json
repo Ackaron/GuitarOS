@@ -1,0 +1,58 @@
+{
+    "sidebar": {
+        "dashboard": "Dashboard",
+        "session": "Current Session",
+        "library": "Library",
+        "progress": "Progress",
+        "settings": "Settings",
+        "pro_account": "Pro Account"
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "subtitle": "Strategy View: Customize Your Focus Slots",
+        "save_generate": "Save & Generate Session",
+        "total": "TOTAL",
+        "add_custom_goal": "Add Custom Goal"
+    },
+    "module": {
+        "routine_constructor": "Routine Constructor (Warmup & Tech)",
+        "monthly_goals": "Monthly Goals (Content)",
+        "theory": "Theory",
+        "technique": "Technique",
+        "repertoire": "Repertoire",
+        "exercises": "Exercises",
+        "weekly": "WEEKLY",
+        "goal": "GOAL",
+        "key_center": "Key Center",
+        "focus_tag": "Focus Tag",
+        "select_file": "Select File",
+        "allocated_time": "Allocated Time",
+        "pick_exercise": "Pick an exercise...",
+        "pick_song": "Pick a song...",
+        "e_g_c_major": "e.g. C Major",
+        "e.g_sweep": "e.g. Sweep Picking"
+    },
+    "library": {
+        "search_placeholder": "Search library...",
+        "import_gp": "Import Guitar Pro File",
+        "create_folder": "Create Folder",
+        "all_items": "All Items",
+        "exercises": "Exercises",
+        "songs": "Songs",
+        "theory": "Theory",
+        "technique": "Technique",
+        "custom": "Custom",
+        "items": "items",
+        "item": "item"
+    },
+    "settings": {
+        "title": "Settings",
+        "general": "General Settings",
+        "language": "Interface Language",
+        "theme": "Theme",
+        "launch_reaper": "Auto-Launch REAPER",
+        "launch_gp": "Auto-Launch Guitar Pro",
+        "launch_desc": "Automatically open external apps when starting a session",
+        "save": "Save Changes"
+    }
+}

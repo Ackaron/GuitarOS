@@ -1,0 +1,58 @@
+{
+    "sidebar": {
+        "dashboard": "Дашборд",
+        "session": "Текущая сессия",
+        "library": "Библиотека",
+        "progress": "Прогресс",
+        "settings": "Настройки",
+        "pro_account": "PRO Аккаунт"
+    },
+    "dashboard": {
+        "title": "Дашборд",
+        "subtitle": "Стратегия: Настройте слоты фокуса",
+        "save_generate": "Сохранить и создать сессию",
+        "total": "ИТОГО",
+        "add_custom_goal": "Добавить цель"
+    },
+    "module": {
+        "routine_constructor": "Конструктор рутины (Разминка и техника)",
+        "monthly_goals": "Ежемесячные цели (Контент)",
+        "theory": "Теория",
+        "technique": "Техника",
+        "repertoire": "Репертуар",
+        "exercises": "Упражнения",
+        "weekly": "ЕЖЕНЕДЕЛЬНО",
+        "goal": "ЦЕЛЬ",
+        "key_center": "Тональность",
+        "focus_tag": "Фокусный тег",
+        "select_file": "Выберите файл",
+        "allocated_time": "Выделенное время",
+        "pick_exercise": "Выберите упражнение...",
+        "pick_song": "Выберите песню...",
+        "e_g_c_major": "например, C Major",
+        "e.g_sweep": "например, Sweep Picking"
+    },
+    "library": {
+        "search_placeholder": "Поиск по библиотеке...",
+        "import_gp": "Импорт Guitar Pro",
+        "create_folder": "Создать папку",
+        "all_items": "Все элементы",
+        "exercises": "Упражнения",
+        "songs": "Песни",
+        "theory": "Теория",
+        "technique": "Техника",
+        "custom": "Разное",
+        "items": "элементов",
+        "item": "элемент"
+    },
+    "settings": {
+        "title": "Настройки",
+        "general": "Основные настройки",
+        "language": "Язык интерфейса",
+        "theme": "Тема оформления",
+        "launch_reaper": "Автозапуск REAPER",
+        "launch_gp": "Автозапуск Guitar Pro",
+        "launch_desc": "Автоматически открывать внешние приложения при запуске сессии",
+        "save": "Сохранить изменения"
+    }
+}

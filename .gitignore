@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production / Builds / Installers
+dist/
+release-builds/
+out/
+.next/
+Source/build_*_log.txt
+
+# Local User Data & Backups (CRITICAL)
+Data/
+Snapshot*/
+backup/
+$null
+
+# Portable Apps
+Apps/
+!Source/build/icon.png
+
+# Logs & Housekeeping
+*.log
+.DS_Store
+Thumbs.db
+
+# Environment & Private
+.env
+.env*.local
+*.pem
