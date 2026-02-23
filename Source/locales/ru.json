@@ -5,7 +5,13 @@
         "library": "Библиотека",
         "progress": "Прогресс",
         "settings": "Настройки",
-        "pro_account": "PRO Аккаунт"
+        "logout": "Выйти"
+    },
+    "login": {
+        "subtitle": "Среда для занятий",
+        "name_label": "Ваше имя",
+        "name_placeholder": "Введите ваше имя...",
+        "submit": "Начать занятие"
     },
     "dashboard": {
         "title": "Дашборд",
@@ -20,7 +26,7 @@
         "theory": "Теория",
         "technique": "Техника",
         "repertoire": "Репертуар",
-        "exercises": "Упражнения",
+        "exercises": "Этюд",
         "weekly": "ЕЖЕНЕДЕЛЬНО",
         "goal": "ЦЕЛЬ",
         "key_center": "Тональность",
@@ -37,7 +43,7 @@
         "import_gp": "Импорт Guitar Pro",
         "create_folder": "Создать папку",
         "all_items": "Все элементы",
-        "exercises": "Упражнения",
+        "exercises": "Этюд",
         "songs": "Песни",
         "theory": "Теория",
         "technique": "Техника",

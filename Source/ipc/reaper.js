@@ -1,30 +1,98 @@
 /**
  * ipc/reaper.js — IPC handlers for REAPER and Guitar Pro integration.
+ *
+ * Session lifecycle:
+ *   reaper:start-session  → launch REAPER once + send first exercise
+ *   reaper:load-exercise  → send file-bridge command (no restart)
+ *   reaper:end-session    → kill REAPER
  */
 'use strict';
 
 const { ipcMain } = require('electron');
 const path = require('path');
+const { getUserDB } = require('../services/db');
 const ReaperService = require('../services/ReaperService');
 const ReaperFileService = require('../services/ReaperFileService');
 const GPService = require('../services/GPService');
-const { initDB } = require('../services/db');
+const UserPreferencesService = require('../services/UserPreferencesService');
 
 function registerReaperHandlers() {
 
-    // Launch REAPER
+    // ── Session Lifecycle ─────────────────────────────────────────────────
+
+    /**
+     * Start a new REAPER session: update listener, launch REAPER once, load the first exercise.
+     */
+    ipcMain.handle('reaper:start-session', async (_event, exercise) => {
+        try {
+            if (!exercise || !exercise.path) {
+                throw new Error('Exercise path is missing');
+            }
+
+            // Always update the listener script to ensure latest version is running
+            await _autoUpdateListener();
+
+            const exerciseToLoad = await _enrichExercise(exercise);
+            const result = await ReaperService.startSession(exerciseToLoad, exerciseToLoad.path);
+
+            await _maybeOpenGP(exerciseToLoad);
+
+            return result;
+        } catch (err) {
+            console.error('[IPC] reaper:start-session failed:', err);
+            return { success: false, error: err.message };
+        }
+    });
+
+    /**
+     * Load a different exercise into the running REAPER session (no restart).
+     */
+    ipcMain.handle('reaper:load-exercise', async (_event, exercise) => {
+        try {
+            if (!exercise || !exercise.path) {
+                throw new Error('Exercise path is missing');
+            }
+
+            const exerciseToLoad = await _enrichExercise(exercise);
+            console.log(`[IPC] Loading exercise: "${exerciseToLoad.title}" (ID: ${exerciseToLoad.id})`);
+
+            const result = await ReaperService.sendExerciseCommand(exerciseToLoad, exerciseToLoad.path);
+
+            await _maybeOpenGP(exerciseToLoad);
+
+            return result;
+        } catch (err) {
+            console.error('[IPC] reaper:load-exercise failed:', err);
+            return { success: false, error: err.message };
+        }
+    });
+
+    /**
+     * End session: kill REAPER, close Guitar Pro.
+     */
+    ipcMain.handle('reaper:end-session', async () => {
+        try {
+            await GPService.close();
+            await ReaperService.endSession();
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // ── Transport / Commands ──────────────────────────────────────────────
+
     ipcMain.handle('reaper:launch', () => {
-        console.log('IPC: reaper:launch');
         ReaperService.launch();
         return { success: true };
     });
 
-    // Kill REAPER
     ipcMain.handle('reaper:kill', () => {
         ReaperService.kill();
+        ReaperService.sessionActive = false;
+        return { success: true };
     });
 
-    // Send a raw command ID to REAPER Web Interface
     ipcMain.handle('reaper:command', async (_event, commandId) => {
         try {
             const res = await ReaperService.sendCommand(commandId);
@@ -34,148 +102,146 @@ function registerReaperHandlers() {
         }
     });
 
-    // Setup session via file bridge
     ipcMain.handle('reaper:setup_session', async (_event, data) => {
-        return await ReaperFileService.sendCommand({
-            action: 'SETUP_SESSION',
-            ...data
-        });
+        return await ReaperFileService.sendCommand({ action: 'SETUP_SESSION', ...data });
     });
 
-    /**
-     * Load an exercise into REAPER and optionally open Guitar Pro.
-     * The frontend sends the full exercise object (including absolute `path`).
-     */
-    ipcMain.handle('reaper:load-exercise', async (_event, exercise) => {
-        try {
-            if (!exercise.path) {
-                throw new Error('Exercise path is missing');
-            }
-
-            // Merge fresh BPM from DB
-            const db = await initDB();
-            const dbItem = (db.data.exercises || []).find(e => e.id === exercise.id);
-            const exerciseToLoad = { ...exercise, ...(dbItem || {}) };
-            if (exercise.path) exerciseToLoad.path = exercise.path;
-
-            // Load in REAPER
-            await ReaperService.loadExercise(exerciseToLoad, exerciseToLoad.path);
-
-            // Open Guitar Pro tab file
-            if (exercise.files && exercise.files.tab) {
-                let gpFullPath = exercise.files.tab;
-                if (!path.isAbsolute(gpFullPath)) {
-                    gpFullPath = path.join(exercise.path, gpFullPath);
-                }
-                console.log('Opening GP file:', gpFullPath);
-                GPService.openFile(gpFullPath);
-            }
-
-            return { success: true };
-        } catch (err) {
-            console.error('Failed to load exercise:', err);
-            return { success: false, error: err.message };
-        }
-    });
-
-    // Set BPM in real-time via file bridge
     ipcMain.handle('reaper:set-bpm', async (_event, bpm) => {
         return await ReaperFileService.sendCommand({ action: 'SET_BPM', bpm });
     });
 
-    // Transport controls (play / stop / pause / record / rewind)
     ipcMain.handle('reaper:transport', async (_event, action) => {
         return await ReaperService.transport(action);
     });
 
-    // Mixer — track volume
     ipcMain.handle('reaper:set-volume', async (_event, { trackIndex, volume }) => {
         return await ReaperService.setTrackVolume(trackIndex, volume);
     });
 
-    // Mixer — track mute
     ipcMain.handle('reaper:set-mute', async (_event, { trackIndex, isMuted }) => {
         return await ReaperService.setTrackMute(trackIndex, isMuted);
     });
 
-    // Trigger auto-configuration of REAPER Web Interface
+    // ── Config & Listener ────────────────────────────────────────────────
+
     ipcMain.handle('reaper:auto-config', async () => {
         return await ReaperService.configureWebInterface();
     });
 
-    // Install the GuitarOS Lua listener script into the target REAPER's Scripts folder
     ipcMain.handle('reaper:install-listener', async () => {
         try {
-            const prefs = await (require('../services/UserPreferencesService')).getPreferences();
-            const reaperExe = (prefs.general && prefs.general.reaperPath)
-                ? prefs.general.reaperPath
-                : require('../config/paths').REAPER_PATH;
-
+            const prefs = await UserPreferencesService.getPreferences();
+            const reaperExe = (prefs.general?.reaperPath) || require('../config/paths').REAPER_PATH;
             const reaperDir = path.dirname(reaperExe);
             const appData = process.env.APPDATA || '';
 
-            // Possible Scripts folder locations
             const scriptsDirCandidates = [
                 path.join(reaperDir, 'Scripts'),
                 path.join(reaperDir, '..', 'Scripts'),
                 path.join(appData, 'REAPER', 'Scripts'),
             ];
 
+            const fse = require('fs-extra');
             let scriptsDir = null;
             for (const candidate of scriptsDirCandidates) {
-                if (await require('fs-extra').pathExists(candidate)) {
-                    scriptsDir = candidate;
-                    break;
-                }
+                if (await fse.pathExists(candidate)) { scriptsDir = candidate; break; }
             }
-
-            // If none found, create next to the exe
             if (!scriptsDir) {
                 scriptsDir = path.join(reaperDir, 'Scripts');
-                await require('fs-extra').ensureDir(scriptsDir);
+                await fse.ensureDir(scriptsDir);
             }
 
-            // Source listener script (from app's Source/scripts/)
             const srcListener = path.join(__dirname, '..', 'scripts', 'reaper_listener.lua');
             const dstListener = path.join(scriptsDir, 'reaper_listener.lua');
+            await fse.copyFile(srcListener, dstListener);
 
-            await require('fs-extra').copyFile(srcListener, dstListener);
-            console.log('Copied listener to:', dstListener);
-
-            // Patch or create __startup.lua
             const startupPath = path.join(scriptsDir, '__startup.lua');
             const startupLine = `dofile(reaper.GetResourcePath() .. '/Scripts/reaper_listener.lua')\n`;
-            let startupContent = '';
-
-            if (await require('fs-extra').pathExists(startupPath)) {
-                startupContent = await require('fs-extra').readFile(startupPath, 'utf8');
-                // Only add if not already present
-                if (!startupContent.includes('reaper_listener.lua')) {
-                    startupContent += '\n-- GuitarOS listener\n' + startupLine;
-                    await require('fs-extra').writeFile(startupPath, startupContent, 'utf8');
+            if (await fse.pathExists(startupPath)) {
+                let current = await fse.readFile(startupPath, 'utf8');
+                if (!current.includes('reaper_listener.lua')) {
+                    await fse.writeFile(startupPath, current + '\n' + startupLine);
                 }
             } else {
-                await require('fs-extra').writeFile(startupPath,
-                    `-- Auto-generated by GuitarOS\n${startupLine}`, 'utf8');
+                await fse.writeFile(startupPath, startupLine);
             }
 
             return { success: true, scriptPath: dstListener };
         } catch (err) {
-            console.error('reaper:install-listener failed:', err);
             return { success: false, error: err.message };
         }
     });
 
-    // Guitar Pro — open file
-    ipcMain.handle('gp:open', (_event, filePath) => {
-        GPService.openFile(filePath);
-    });
+    // ── Guitar Pro ──────────────────────────────────────────────────────
 
-    // Guitar Pro — close
+    ipcMain.handle('gp:open', (_event, filePath) => GPService.openFile(filePath));
     ipcMain.handle('gp:close', async () => {
         await GPService.close();
         return { success: true };
     });
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Auto-copy the latest Lua listener to REAPER's Scripts folder.
+ * This ensures the updated script is always active without a manual reinstall step.
+ */
+async function _autoUpdateListener() {
+    try {
+        const fse = require('fs-extra');
+        const srcListener = path.join(__dirname, '..', 'scripts', 'reaper_listener.lua');
+        if (!fse.existsSync(srcListener)) return;
+
+        const appData = process.env.APPDATA || '';
+        const scriptsDirs = [
+            path.join(appData, 'REAPER', 'Scripts'),
+        ];
+
+        // Also try to detect REAPER portable location from preferences
+        try {
+            const prefs = await UserPreferencesService.getPreferences();
+            const reaperExe = prefs.general?.reaperPath;
+            if (reaperExe) {
+                scriptsDirs.push(path.join(path.dirname(reaperExe), 'Scripts'));
+            }
+        } catch (_) { /* ignore */ }
+
+        for (const dir of scriptsDirs) {
+            const dest = path.join(dir, 'reaper_listener.lua');
+            if (await fse.pathExists(dir)) {
+                await fse.copyFile(srcListener, dest);
+                console.log('[IPC] Listener updated at:', dest);
+            }
+        }
+    } catch (err) {
+        console.warn('[IPC] Could not auto-update listener:', err.message);
+    }
+}
+
+/**
+ * Merge fresh BPM and db data into the exercise object.
+ */
+async function _enrichExercise(exercise) {
+    const userDb = getUserDB();
+    await userDb.read();
+    const dbItem = (userDb.data.exercises || []).find(e => e.id === exercise.id);
+    const enriched = { ...exercise, ...(dbItem || {}) };
+    if (!enriched.path) enriched.path = exercise.path;
+    return enriched;
+}
+
+/**
+ * Open Guitar Pro tab file if the preference is enabled and the file exists.
+ */
+async function _maybeOpenGP(exercise) {
+    const prefs = await UserPreferencesService.getPreferences();
+    const launchGP = prefs.general?.launchGuitarPro;
+    if (launchGP !== false && launchGP !== 'false' && exercise.files?.tab) {
+        let gpPath = exercise.files.tab;
+        if (!path.isAbsolute(gpPath)) gpPath = path.join(exercise.path, gpPath);
+        GPService.openFile(gpPath);
+    }
 }
 
 module.exports = { registerReaperHandlers };

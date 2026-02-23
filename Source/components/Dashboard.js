@@ -8,13 +8,14 @@ import Library from './Library';
 import ProgressView from './ProgressView';
 import ModuleConfig from './ModuleConfig';
 import SettingsView from './SettingsView';
+import LoginScreen from './LoginScreen';
 import { useLanguage } from '../context/LanguageContext';
 import { formatTime } from '../utils/formatTime';
 
 export default function Dashboard() {
-    const { userName, init } = useStore();
+    const { userName, init, setUserName, logout } = useStore();
     const { t } = useLanguage();
-    const [activeView, setActiveView] = useState('dashboard'); // dashboard, library, progress, settings
+    const [activeView, setActiveView] = useState('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     useEffect(() => {
@@ -27,30 +28,17 @@ export default function Dashboard() {
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-    // --- UI Helpers ---
-    const handleUpdateTotalTime = (val) => {
-        const newTotal = Number(val);
-        setTotalMinutes(newTotal);
-        // Rescale routine items
-        if (newTotal > 0 && routine.length > 0) {
-            // Calculate total existing duration to find proportions
-            const currentTotalSec = routine.reduce((sum, r) => sum + r.duration, 0);
-            if (currentTotalSec > 0) {
-                const newRoutine = routine.map(item => ({
-                    ...item,
-                    duration: Math.floor(item.duration / currentTotalSec * (newTotal * 60))
-                }));
-                setRoutine(newRoutine);
-                // Update current step timer if not running
-                if (!isTimerRunning) {
-                    setStepTimer(newRoutine[currentStepIndex].duration);
-                }
-            }
-        }
+    const handleLogin = (name) => {
+        setUserName(name);
     };
 
-    // --- Session Flow State ---
-    const [viewMode, setViewMode] = useState('start'); // start, session, summary
+    const handleLogout = async () => {
+        await logout();
+        setActiveView('dashboard');
+    };
+
+    // --- Session Flow State (ALL hooks must be before any early return) ---
+    const [viewMode, setViewMode] = useState('start');
     const [totalMinutes, setTotalMinutes] = useState(60);
     const [routine, setRoutine] = useState([]);
     const [modules, setModules] = useState([
@@ -65,6 +53,7 @@ export default function Dashboard() {
     const [stepTimer, setStepTimer] = useState(0);
     const [isTimerRunning, setIsTimerRunning] = useState(false);
     const [catalog, setCatalog] = useState({ items: [], tags: [], keys: [] });
+    const [prefs, setPrefs] = useState(null);
 
     // Initial Data Load
     useEffect(() => {
@@ -75,21 +64,23 @@ export default function Dashboard() {
                 setCatalog(cat || { items: [], tags: [], keys: [] });
 
                 // 2. Get User Prefs (Modules + Session)
-                const prefs = await window.electronAPI.invoke('prefs:get');
-                if (prefs) {
-                    if (prefs.routine?.modules) {
-                        setModules(prefs.routine.modules);
+                const prefsData = await window.electronAPI.invoke('prefs:get');
+                if (prefsData) {
+                    setPrefs(prefsData);
+                    if (prefsData.routine?.modules) {
+                        setModules(prefsData.routine.modules);
                     }
 
                     // Check for active session logic...
-                    if (prefs.session?.isActive && prefs.session.currentRoutine?.length > 0) {
+                    if (prefsData.session?.isActive && prefsData.session.currentRoutine?.length > 0) {
                         // ... (keep existing persistence logic) ...
                         if (confirm("Resume previous session?")) {
-                            setRoutine(prefs.session.currentRoutine);
-                            setCurrentStepIndex(prefs.session.currentIndex);
-                            setTotalMinutes(Math.floor(prefs.session.elapsedTime / 60));
+                            setRoutine(prefsData.session.currentRoutine);
+                            setCurrentStepIndex(prefsData.session.currentIndex);
+                            setTotalMinutes(Math.floor(prefsData.session.elapsedTime / 60));
+                            setActiveView('session');
                             setViewMode('session');
-                            const item = prefs.session.currentRoutine[prefs.session.currentIndex];
+                            const item = prefsData.session.currentRoutine[prefsData.session.currentIndex];
                             setStepTimer(item.duration);
                         } else {
                             await window.electronAPI.invoke('prefs:update-session', { isActive: false });
@@ -101,19 +92,43 @@ export default function Dashboard() {
         initDashboard();
     }, []);
 
+    // Timer-end beep sound via Web Audio API
+    const playTimerEndSound = () => {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const playTone = (freq, startTime, duration) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.4, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            };
+            playTone(880, ctx.currentTime, 0.25);
+            playTone(1100, ctx.currentTime + 0.28, 0.35);
+        } catch (e) {
+            console.warn('Timer sound failed:', e);
+        }
+    };
+
     // Timer Logic
     useEffect(() => {
         let interval;
         if (isTimerRunning && stepTimer > 0) {
             interval = setInterval(() => {
                 setStepTimer(prev => {
-                    const next = prev - 1;
-                    // Persist periodically (e.g. every 5s or on stop) - NOT every second here for performance
-                    return next;
+                    if (prev <= 1) {
+                        playTimerEndSound();
+                        setIsTimerRunning(false);
+                        return 0;
+                    }
+                    return prev - 1;
                 });
             }, 1000);
-        } else if (stepTimer === 0 && isTimerRunning) {
-            setIsTimerRunning(false);
         }
         return () => clearInterval(interval);
     }, [isTimerRunning, stepTimer]);
@@ -146,11 +161,45 @@ export default function Dashboard() {
         return () => clearTimeout(saveModules);
     }, [modules]);
 
+    // ── Early returns (MUST be after all hooks) ──────────────────────────────
+
+    // Show loading state while initializing
+    if (userName === null) {
+        return (
+            <div className="flex h-screen bg-[#0F111A] items-center justify-center">
+                <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    // Show login screen when no user
+    if (!userName) {
+        return <LoginScreen onLogin={handleLogin} />;
+    }
+
+    // --- UI Helpers ---
+    const handleUpdateTotalTime = (val) => {
+        const newTotal = Number(val);
+        setTotalMinutes(newTotal);
+        if (newTotal > 0 && routine.length > 0) {
+            const currentTotalSec = routine.reduce((sum, r) => sum + r.duration, 0);
+            if (currentTotalSec > 0) {
+                const newRoutine = routine.map(item => ({
+                    ...item,
+                    duration: Math.floor(item.duration / currentTotalSec * (newTotal * 60))
+                }));
+                setRoutine(newRoutine);
+                if (!isTimerRunning) {
+                    setStepTimer(newRoutine[currentStepIndex].duration);
+                }
+            }
+        }
+    };
+
     // --- Actions ---
 
     const handleGenerateRoutine = async () => {
         if (window.electronAPI) {
-            // Save current module config first
             await window.electronAPI.invoke('prefs:save', { routine: { modules } });
 
             const generated = await window.electronAPI.invoke('routine:generate', { minutes: totalMinutes, modules });
@@ -158,44 +207,43 @@ export default function Dashboard() {
             if (generated && generated.length > 0) {
                 const sessionId = window.crypto.randomUUID();
                 setRoutine(generated);
-                setActiveView('session'); // Fix: Redirect to session view
+                setActiveView('session');
                 setViewMode('session');
 
-                // Initialize Session State with ID
                 await window.electronAPI.invoke('prefs:update-session', {
                     isActive: true,
-                    sessionId: sessionId,
+                    sessionId,
                     currentRoutine: generated,
                     currentIndex: 0,
                     elapsedTime: 0,
                     startDate: new Date().toISOString()
                 });
 
-                loadStep(0, generated);
+                // Launch REAPER once for the session and load first exercise
+                const firstItem = generated[0];
+                setCurrentStepIndex(0);
+                setStepTimer(firstItem.duration || 300);
+                setIsTimerRunning(false);
+                await window.electronAPI.invoke('reaper:start-session', firstItem);
+                await window.electronAPI.invoke('prefs:update-session', {
+                    isActive: true, currentRoutine: generated, currentIndex: 0
+                });
             } else {
-                alert("No items found! Check your Library and Module settings.");
+                alert('No items found! Check your Library and Module settings.');
             }
         }
     };
 
     const loadStep = async (index, currentRoutine = routine) => {
         if (index >= 0 && index < currentRoutine.length) {
-            // Close previous GP instance if exists
-            // (Disabled for seamless transitions)
-
             setCurrentStepIndex(index);
             const item = currentRoutine[index];
             setStepTimer(item.duration || 300);
             setIsTimerRunning(false);
 
-            // Trigger Reaper & GP (reaper:load-exercise handles GP launch if configured, but currently we might need explicit GP launch?)
-            // Actually, reaper:load-exercise in main.js calls ReaperService.setupProject, 
-            // but does it launch GP?
-            // Let's check main.js handler for 'reaper:load-exercise'.
-
             if (window.electronAPI) {
+                // Send exercise command to running REAPER (no restart)
                 await window.electronAPI.invoke('reaper:load-exercise', item);
-                // Save State immediately
                 await window.electronAPI.invoke('prefs:update-session', {
                     isActive: true,
                     currentRoutine,
@@ -237,16 +285,11 @@ export default function Dashboard() {
 
     const finishSession = async () => {
         if (window.electronAPI) {
-            // Kill both apps
-            await window.electronAPI.invoke('gp:close');
-            await window.electronAPI.invoke('reaper:kill'); // Kill Reaper instead of just stopping
-
-            // Clear session state
+            // End REAPER session (kills REAPER + Guitar Pro)
+            await window.electronAPI.invoke('reaper:end-session');
             await window.electronAPI.invoke('prefs:update-session', { isActive: false, currentRoutine: [] });
-
-            // Redirect to Progress
             setActiveView('progress');
-            setViewMode('start'); // Reset internal session mode
+            setViewMode('start');
             setRoutine([]);
         }
     };
@@ -270,6 +313,7 @@ export default function Dashboard() {
                 onNavigate={handleNav}
                 isOpen={isSidebarOpen}
                 onToggle={toggleSidebar}
+                onLogout={handleLogout}
             />
 
             {/* Main Content */}
@@ -313,6 +357,7 @@ export default function Dashboard() {
                         onSetStepTimer={setStepTimer}
                         onReaperTransport={reaperTransport}
                         onUpdateTotalTime={handleUpdateTotalTime}
+                        launchGuitarPro={prefs?.general?.launchGuitarPro !== false}
                     />
                 )}
 

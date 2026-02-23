@@ -27,7 +27,14 @@ class GPService {
 
         try {
             const prefs = await UserPreferencesService.getPreferences();
-            const gpExePath = prefs.general?.guitarProPath;
+            const general = prefs.general || {};
+
+            if (general.launchGuitarPro === false || general.launchGuitarPro === 'false') {
+                console.log(`GPService: openFile suppressed. launchGuitarPro=${general.launchGuitarPro} (type: ${typeof general.launchGuitarPro})`);
+                return;
+            }
+
+            const gpExePath = general.guitarProPath;
 
             if (gpExePath) {
                 exec(`"${gpExePath}" "${filePath}"`, err => {

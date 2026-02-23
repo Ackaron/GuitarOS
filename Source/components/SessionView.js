@@ -4,6 +4,7 @@ import { Button } from './UI';
 import { formatTime } from '../utils/formatTime';
 import FeedbackModal from './FeedbackModal';
 import ReaperControls from './ReaperControls';
+import TabPlayer from './TabPlayer';
 
 const SessionView = ({
     routine,
@@ -18,7 +19,8 @@ const SessionView = ({
     onFinishSession,
     onSetStepTimer,
     onReaperTransport,
-    onUpdateTotalTime
+    onUpdateTotalTime,
+    launchGuitarPro = true
 }) => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState(null);
@@ -30,6 +32,8 @@ const SessionView = ({
     // Target BPM Editing
     const [isEditingTarget, setIsEditingTarget] = useState(false);
     const [newTargetBpm, setNewTargetBpm] = useState('');
+
+    const [viewMode, setViewMode] = useState(launchGuitarPro ? 'timer' : 'tab'); // Default to Tab if GP is off
 
     const currentItem = routine[currentStepIndex];
 
@@ -178,7 +182,7 @@ const SessionView = ({
     const isTargetReached = currentItem?.targetBPM && currentBpm >= currentItem.targetBPM;
 
     return (
-        <div className="w-full h-full p-8 animate-in fade-in zoom-in-95 duration-500 relative">
+        <div className="w-full h-full p-8 animate-in fade-in zoom-in-95 duration-500 relative overflow-hidden">
             <FeedbackModal
                 isOpen={isFeedbackOpen}
                 exerciseTitle={currentItem?.title}
@@ -186,10 +190,99 @@ const SessionView = ({
                 isTargetReached={isTargetReached}
             />
 
-            <div className="h-full grid grid-cols-12 gap-8 max-w-[1600px] mx-auto">
-                {/* LEFT: Focus Mode */}
-                <div className="col-span-12 lg:col-span-7 flex flex-col justify-center relative">
-                    {currentItem && (
+            <div className="h-full grid grid-cols-12 gap-8 max-w-[1600px] mx-auto min-h-0">
+                {/* LEFT: Focus Mode or Tab View */}
+                <div className="col-span-12 lg:col-span-7 flex flex-col relative min-h-0">
+                    {/* View Toggle & Navigation */}
+                    <div className="absolute top-0 right-0 z-20 flex items-center gap-4">
+                        {/* Tab-view Nav Buttons */}
+                        {viewMode === 'tab' && (
+                            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                                {/* Mini Timer & Start/Pause */}
+                                <div className="flex items-center gap-1 mr-1">
+                                    <div className={`font-mono text-sm font-bold tabular-nums px-2 ${stepTimer < 30 && stepTimer > 0 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+                                        {formatTime(stepTimer)}
+                                    </div>
+                                    <button
+                                        onClick={onToggleTimer}
+                                        className={`p-1.5 rounded-lg transition-all ${isTimerRunning
+                                            ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+                                            : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}
+                                        title={isTimerRunning ? 'Pause Timer' : 'Start Timer'}
+                                    >
+                                        {isTimerRunning
+                                            ? <span className="text-[10px] font-bold px-0.5">⏸</span>
+                                            : <Play size={14} fill="currentColor" />}
+                                    </button>
+                                </div>
+
+                                <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+
+                                <button
+                                    onClick={onPrev}
+                                    disabled={currentStepIndex === 0}
+                                    className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-20 transition-all"
+                                    title="Previous Step"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <div className="text-[10px] font-mono text-gray-600 px-2 uppercase tracking-tighter">
+                                    {currentStepIndex + 1}/{routine.length}
+                                </div>
+                                <button
+                                    onClick={() => handleFeedbackTrigger(onNext)}
+                                    disabled={currentStepIndex === routine.length - 1}
+                                    className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-20 transition-all"
+                                    title="Next Step"
+                                >
+                                    <ChevronLeft size={18} className="rotate-180" />
+                                </button>
+                                <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
+                                <button
+                                    onClick={() => handleFeedbackTrigger(onFinishSession)}
+                                    className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-500/60 hover:text-red-500 transition-all"
+                                    title="End Session"
+                                >
+                                    <Activity size={18} />
+                                </button>
+                            </div>
+                        )}
+
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setViewMode('timer')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${viewMode === 'timer' ? 'bg-red-500 text-white border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'bg-white/5 text-gray-500 border-white/5 hover:text-white hover:bg-white/10'}`}
+                            >
+                                Focus
+                            </button>
+                            <button
+                                onClick={() => setViewMode('tab')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${viewMode === 'tab' ? 'bg-blue-500 text-white border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'bg-white/5 text-gray-500 border-white/5 hover:text-white hover:bg-white/10'}`}
+                            >
+                                Tab
+                            </button>
+                        </div>
+                    </div>
+
+                    {currentItem && viewMode === 'tab' && (
+                        <div className="flex-1 min-h-0 pt-12 overflow-hidden">
+                            <TabPlayer
+                                filePath={(() => {
+                                    if (!currentItem.files?.tab) return null;
+                                    // Ensure absolute path
+                                    if (window.electronAPI && !currentItem.files.tab.includes(':') && !currentItem.files.tab.startsWith('/')) {
+                                        // If it's just a filename, it means it wasn't resolved in the routine generation
+                                        // This is a safety check.
+                                        return `${currentItem.path}/${currentItem.files.tab}`.replace(/\\/g, '/');
+                                    }
+                                    return currentItem.files.tab.replace(/\\/g, '/');
+                                })()}
+                            />
+                        </div>
+                    )}
+
+                    {currentItem && viewMode === 'timer' && (
                         <div className="relative z-10">
                             <div className="flex items-center gap-3 mb-6">
                                 {onFinishSession && (

@@ -200,6 +200,20 @@ export default function Library({ onBack }) {
 
     const isRoot = currentPath === '/';
 
+    // Client-side search filter — matches title, name, and key (Theory tonality search)
+    const filterItems = (items) => {
+        if (!searchQuery.trim()) return items;
+        const q = searchQuery.toLowerCase();
+        return items.filter(item =>
+            (item.title || '').toLowerCase().includes(q) ||
+            (item.name || '').toLowerCase().includes(q) ||
+            (item.key || '').toLowerCase().includes(q)
+        );
+    };
+
+    const visibleLibraryData = filterItems(libraryData);
+    const visibleCurrentItems = filterItems(currentItems);
+
     return (
         <div className="h-full flex flex-col pt-2 relative">
             {/* Top Bar */}
@@ -235,7 +249,7 @@ export default function Library({ onBack }) {
             ) : (
                 <div className="grid grid-cols-4 gap-6 animate-in fade-in duration-300">
                     {/* Folders (Root) */}
-                    {isRoot && libraryData.map(folder => (
+                    {isRoot && visibleLibraryData.map(folder => (
                         <div key={folder.id}
                             onClick={() => openFolder(folder.id)}
                             className="relative aspect-[4/3] border border-red-500/30 rounded-xl bg-[#151722] flex flex-col items-center justify-center cursor-pointer hover:border-red-500 hover:shadow-[0_0_15px_rgba(255,85,85,0.15)] transition-all group"
@@ -280,7 +294,7 @@ export default function Library({ onBack }) {
                     </div>
 
                     {/* Items & Subfolders */}
-                    {!isRoot && currentItems.map(item => (
+                    {!isRoot && visibleCurrentItems.map(item => (
                         item.type === 'folder' ? (
                             <div key={item.id}
                                 onClick={() => openFolder(currentPath + '/' + item.name)}
@@ -302,7 +316,7 @@ export default function Library({ onBack }) {
                         ) : (
                             <div key={item.id}
                                 onClick={() => handleFileClick(item)}
-                                className="relative min-w-[200px] h-[100px] border border-red-500/30 rounded-lg bg-[#151722] p-4 flex flex-col justify-between hover:bg-red-500/5 hover:border-red-500/60 cursor-pointer transition-all group relative overflow-hidden"
+                                className="relative min-w-[200px] h-[100px] border border-red-500/30 rounded-lg bg-[#151722] p-4 flex flex-col justify-between hover:bg-red-500/5 hover:border-red-500/60 cursor-pointer transition-all group overflow-hidden"
                                 title={item.fsName}
                             >
                                 <div
@@ -351,7 +365,7 @@ export default function Library({ onBack }) {
                         )
                     ))}
 
-                    {!isRoot && currentItems.length === 0 && (
+                    {!isRoot && visibleCurrentItems.length === 0 && (
                         <div className="col-span-4 text-center text-gray-500 py-10">
                             Folder is empty. Import a file to get started.
                         </div>

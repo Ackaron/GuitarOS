@@ -1,220 +1,292 @@
-/**
- * ReaperService.js — Communicates with a running REAPER instance via
- * its built-in Web Interface (HTTP) and the file-bridge (ReaperFileService).
- */
-'use strict';
-
 const http = require('http');
-const path = require('path');
-const fs = require('fs-extra');
-const { execFile, execSync } = require('child_process');
-
 const { REAPER_WEB_PORT, REAPER_WEB_HOST, REAPER_PATH } = require('../config/paths');
 const UserPreferencesService = require('./UserPreferencesService');
-
-// Transport command IDs for REAPER Web Interface
-const TRANSPORT_COMMANDS = {
-    play: '1007',  // Transport: Play
-    stop: '1016',  // Transport: Stop
-    record: '1013',  // Transport: Record
-    pause: '1008',  // Transport: Pause
-    rewind: '40042'  // Go to start of project
-};
+const fs = require('fs-extra');
+const path = require('path');
 
 class ReaperService {
     constructor() {
         this.baseUrl = `http://${REAPER_WEB_HOST}:${REAPER_WEB_PORT}/_/`;
-        console.log('ReaperService initialised at:', this.baseUrl);
+        this.sessionActive = false;
+        console.log('ReaperService initialized at:', this.baseUrl);
     }
 
-    // ─── Commands ────────────────────────────────────────────────────────────
-
     /**
-     * Send a raw action ID to REAPER via the Web Interface.
-     * @param {string} commandId - e.g. '1007', '_custom_action'
+     * Send a command ID to REAPER
+     * @param {string} commandId - The Action ID (e.g., '_1001', '40044')
      */
     async sendCommand(commandId) {
-        return this._fetch(String(commandId));
+        return this._fetch(`${commandId}`);
     }
 
     /**
-     * Send a predefined transport action.
-     * @param {'play'|'stop'|'record'|'pause'|'rewind'} action
+     * Kill Reaper Process
      */
-    async transport(action) {
-        const cmd = TRANSPORT_COMMANDS[action];
-        if (cmd) return this.sendCommand(cmd);
+    kill() {
+        console.log("Killing REAPER process...");
+        const api = require('child_process');
+        try {
+            api.execSync('taskkill /F /IM reaper.exe /T');
+        } catch (err) {
+            // console.log("Reaper kill error (might be closed):", err.message);
+        }
     }
-
-    /** Set a track's linear volume (0.0–1.0). Track index is 1-based. */
-    async setTrackVolume(trackIndex, volume) {
-        return this._fetch(`SET/TRACK/${trackIndex}/VOL/${volume}`);
-    }
-
-    /** Mute or un-mute a track. Track index is 1-based. */
-    async setTrackMute(trackIndex, isMuted) {
-        return this._fetch(`SET/TRACK/${trackIndex}/MUTE/${isMuted ? 1 : 0}`);
-    }
-
-    // ─── Process control ─────────────────────────────────────────────────────
 
     /**
-     * Launch REAPER. Respects the user's `launchReaper` preference and
-     * `reaperPath` override. Does nothing if already running.
+     * Set Project BPM
+     * @param {number} bpm 
+     */
+    async setBpm(bpm) {
+        return this._fetch(`t/BPM/${bpm}`);
+    }
+
+    /**
+     * Internal fetch wrapper
+     */
+    _fetch(endpoint) {
+        return new Promise((resolve, reject) => {
+            const url = `${this.baseUrl}${endpoint}`;
+
+            http.get(url, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => resolve(data));
+            }).on('error', (err) => {
+                console.error(`Reaper Connection Error (${url}):`, err.message);
+                reject(err);
+            });
+        });
+    }
+
+    /**
+     * Launch REAPER
      */
     launch() {
-        UserPreferencesService.getPreferences().then(prefs => {
-            const general = prefs.general || {};
+        const { execFile } = require('child_process');
+        const fs = require('fs');
 
-            if (general.launchReaper === false || general.launchReaper === 'false') {
-                console.log('REAPER auto-launch disabled by user preference.');
+        // Check user preference
+        UserPreferencesService.getPreferences().then(prefs => {
+            console.log("Reaper Launch Check. Prefs:", JSON.stringify(prefs.general));
+
+            // Extensive false check (boolean or string)
+            if (prefs.general && (prefs.general.launchReaper === false || prefs.general.launchReaper === 'false')) {
+                console.log("REAPER auto-launch disabled by user preference.");
                 return;
             }
 
-            const exePath = general.reaperPath || REAPER_PATH;
+            // Priority: Custom Path > Portable Path
+            let exePath = REAPER_PATH;
+            if (prefs.general && prefs.general.reaperPath) {
+                exePath = prefs.general.reaperPath;
+            }
 
             if (!fs.existsSync(exePath)) {
-                console.error(`REAPER executable not found: ${exePath}`);
+                console.error(`REAPER executable not found at: ${exePath}`);
                 return;
             }
 
             console.log(`Launching REAPER from: ${exePath}`);
-            const child = execFile(exePath, err => {
-                if (err) console.error('Error launching REAPER:', err);
+
+            const child = execFile(exePath, (error) => {
+                if (error) {
+                    console.error('Error launching REAPER:', error);
+                }
             });
+
             child.unref();
         });
     }
 
-    /** Forcefully terminate the REAPER process. */
-    kill() {
-        const { exec } = require('child_process');
-        exec('taskkill /F /IM reaper.exe /T', err => {
-            if (err) console.log('Reaper kill error (may already be closed):', err.message);
-        });
-    }
-
     /**
-     * Load an exercise into a running REAPER instance.
-     * Launches REAPER first if it is not already running.
-     *
-     * @param {Object} exercise - Full exercise object (from Library / DB merge)
-     * @param {string} exercisePath - Absolute path to the exercise folder
-     */
-    async loadExercise(exercise, exercisePath) {
-        const ReaperFileService = require('./ReaperFileService');
-        const files = exercise.files || {};
-
-        const resolve = (rel) => {
-            if (!rel) return null;
-            const abs = path.isAbsolute(rel) ? rel : path.join(exercisePath, rel);
-            return abs.replace(/\\/g, '/');
-        };
-
-        const command = {
-            action: 'LOAD_EXERCISE',
-            bpm: exercise.originalBpm || exercise.bpm,
-            backing: resolve(files.backing),
-            original: resolve(files.original)
-        };
-
-        if (!this._isReaperRunning()) {
-            console.log('REAPER not running — launching...');
-            this.launch();
-            await this._sleep(4000);
-        }
-
-        await ReaperFileService.sendCommand(command);
-        console.log('Sent LOAD_EXERCISE to REAPER:', command);
-        return { success: true };
-    }
-
-    /**
-     * Auto-configure REAPER's Web Interface by writing to reaper.ini.
-     * Reads the user-configured REAPER path from preferences first.
-     * Searches for the INI next to the exe, one level up, and in %APPDATA%\REAPER.
+     * Auto-Configure Reaper Web Interface
      */
     async configureWebInterface() {
+        const fs = require('fs-extra');
+        const path = require('path');
+
         try {
-            // Prefer user-configured path over the compiled-in default
-            const prefs = await UserPreferencesService.getPreferences();
-            const effectiveReaperPath = (prefs.general && prefs.general.reaperPath)
-                ? prefs.general.reaperPath
-                : REAPER_PATH;
+            // Standard location: %APPDATA%\REAPER\reaper.ini
+            // BUT for Portable, it is in Apps/Reaper/reaper.ini
 
-            const reaperDir = path.dirname(effectiveReaperPath);
-            console.log(`Configuring REAPER INI — exe dir: ${reaperDir}`);
+            const reaperDir = path.dirname(REAPER_PATH);
+            // Check current dir or parent dir (sometimes Reaper64 is a subdir)
+            let iniPath = path.join(reaperDir, 'reaper.ini');
 
-            // Search order: next to exe → one level up → %APPDATA%\REAPER
-            const candidates = [
-                path.join(reaperDir, 'reaper.ini'),
-                path.join(reaperDir, '..', 'reaper.ini'),
-                path.join(process.env.APPDATA || '', 'REAPER', 'reaper.ini'),
-            ];
-
-            let iniPath = null;
-            for (const candidate of candidates) {
-                if (await fs.pathExists(candidate)) {
-                    iniPath = candidate;
-                    break;
-                }
+            if (!await fs.pathExists(iniPath)) {
+                // Try one level up
+                iniPath = path.join(reaperDir, '..', 'reaper.ini');
             }
 
-            if (!iniPath) {
-                const tried = candidates.join(', ');
-                console.warn('reaper.ini not found. Tried:', tried);
-                return { success: false, error: `reaper.ini not found. Tried: ${tried}` };
+            // Fallback to APPDATA
+            if (!await fs.pathExists(iniPath)) {
+                console.log("Portable reaper.ini not found. Checking APPDATA.");
+                const appData = process.env.APPDATA;
+                iniPath = path.join(appData, 'REAPER', 'reaper.ini');
             }
 
-            console.log(`Configuring REAPER INI at: ${iniPath}`);
+            if (!await fs.pathExists(iniPath)) {
+                return { success: false, error: 'reaper.ini not found' };
+            }
+
+            console.log(`Configuring Reaper INI at: ${iniPath}`);
 
             let content = await fs.readFile(iniPath, 'utf8');
-            const wwwBlock = `\nenabled=1\nport=8080\nmode=1\nrc_uri=`;
-            const sectionRegex = /\[reaper_www\]([\s\S]*?)(?=\[|$)/;
 
+            // Check if section exists
             if (content.includes('[reaper_www]')) {
-                content = content.replace(sectionRegex, `[reaper_www]${wwwBlock}\n`);
+                const sectionRegex = /\[reaper_www\]([\s\S]*?)(?=\[|$)/;
+                const match = content.match(sectionRegex);
+
+                let newBlock = `
+enabled=1
+port=8080
+mode=1
+rc_uri=`;
+
+                if (match) {
+                    content = content.replace(sectionRegex, `[reaper_www]${newBlock}\n`);
+                } else {
+                    content += `\n[reaper_www]${newBlock}\n`;
+                }
+
             } else {
-                content += `\n[reaper_www]${wwwBlock}\n`;
+                content += `\n[reaper_www]
+enabled=1
+port=8080
+mode=1
+rc_uri=
+`;
             }
 
             await fs.writeFile(iniPath, content, 'utf8');
-            console.log('REAPER INI updated successfully.');
-            return { success: true, iniPath };
+            return { success: true };
 
         } catch (err) {
-            console.error('REAPER auto-config failed:', err);
+            console.error("Auto-config failed:", err);
             return { success: false, error: err.message };
         }
     }
 
-    // ─── Internals ───────────────────────────────────────────────────────────
+    /**
+     * Load Exercise (Full Session Setup)
+     * @param {Object} exercise - The full exercise object from Library
+     * @param {string} exercisePath - Absolute path to the exercise folder
+     */
+    async loadExercise(exercise, exercisePath) {
+        const path = require('path');
+        const files = exercise.files || {};
+
+        let backingPath = null;
+        if (files.backing) {
+            backingPath = path.isAbsolute(files.backing)
+                ? files.backing
+                : path.join(exercisePath, files.backing);
+            backingPath = backingPath.replace(/\\/g, '/');
+        }
+
+        let originalPath = null;
+        if (files.original) {
+            originalPath = path.isAbsolute(files.original)
+                ? files.original
+                : path.join(exercisePath, files.original);
+            originalPath = originalPath.replace(/\\/g, '/');
+        }
+
+        const targetBpm = exercise.originalBpm || exercise.bpm;
+
+        const command = {
+            action: 'LOAD_EXERCISE',
+            bpm: targetBpm,
+            backing: backingPath,
+            original: originalPath
+        };
+
+        const ReaperFileService = require('./ReaperFileService');
+
+        // 2. Try sending command to running instance
+        try {
+            console.log("Attempting to send LOAD_EXERCISE to running Reaper instance...");
+
+            if (!this._isReaperRunning()) {
+                console.log("Reaper not running. Launching...");
+                this.launch();
+                await this._sleep(4000); // Wait for startup
+            }
+
+            // Just write the command. Listener will pick it up.
+            await ReaperFileService.sendCommand(command);
+            console.log('Sent LOAD_EXERCISE to Reaper:', command);
+            this.sessionActive = true;
+            return { success: true };
+
+        } catch (err) {
+            console.error("Failed to load exercise in Reaper:", err);
+            return { success: false, error: err.message };
+        }
+    }
+
+    /**
+     * Start Session Wrapper (Modular IPC compatibility)
+     */
+    async startSession(exercise, exercisePath) {
+        return this.loadExercise(exercise, exercisePath);
+    }
+
+    /**
+     * End Session Wrapper
+     */
+    async endSession() {
+        this.kill();
+        this.sessionActive = false;
+        return { success: true };
+    }
+
+    /**
+     * Generic Command Wrapper
+     */
+    async sendExerciseCommand(exercise, exercisePath) {
+        return this.loadExercise(exercise, exercisePath);
+    }
 
     _isReaperRunning() {
         try {
+            const { execSync } = require('child_process');
             const stdout = execSync('tasklist /FI "IMAGENAME eq reaper.exe"').toString();
             return stdout.includes('reaper.exe');
-        } catch {
+        } catch (e) {
             return false;
         }
     }
 
-    _sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    async transport(action) {
+        // Command IDs
+        const COMMANDS = {
+            'play': '1007',  // Transport: Play
+            'stop': '1016',  // Transport: Stop
+            'record': '1013', // Transport: Record
+            'pause': '1008', // Transport: Pause
+            'rewind': '40042' // Go to start
+        };
+
+        const cmd = COMMANDS[action];
+        if (cmd) {
+            return this.sendCommand(cmd);
+        }
     }
 
-    _fetch(endpoint) {
-        return new Promise((resolve, reject) => {
-            const url = `${this.baseUrl}${endpoint}`;
-            http.get(url, res => {
-                let data = '';
-                res.on('data', chunk => { data += chunk; });
-                res.on('end', () => resolve(data));
-            }).on('error', err => {
-                console.error(`REAPER HTTP error (${url}):`, err.message);
-                reject(err);
-            });
-        });
+    async setTrackVolume(trackIndex, volume) {
+        // trackIndex is 1-based for Reaper Web Interface SET/TRACK/x
+        return this._fetch(`SET/TRACK/${trackIndex}/VOL/${volume}`);
+    }
+
+    async setTrackMute(trackIndex, isMuted) {
+        // SET/TRACK/i/MUTE/1 or 0
+        return this._fetch(`SET/TRACK/${trackIndex}/MUTE/${isMuted ? 1 : 0}`);
+    }
+
+    _sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 

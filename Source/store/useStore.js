@@ -1,26 +1,24 @@
 import { create } from 'zustand';
 
-// Mock Electron IPC for browser dev mode
-const mockIpc = {
-    invoke: async (channel, ...args) => {
-        console.log(`[MockIPC] Call: ${channel}`, args);
-        if (channel === 'db:get') return { user: { name: 'Dev User' } };
-        return { success: true };
-    }
-};
-
 const getIpc = () => {
     if (typeof window !== 'undefined' && window.electronAPI) {
         return window.electronAPI;
     }
-    return mockIpc;
+    // Mock for browser dev mode
+    return {
+        invoke: async (channel, ...args) => {
+            console.log(`[MockIPC] ${channel}`, args);
+            if (channel === 'db:get') return { user: { name: '' } };
+            return { success: true };
+        }
+    };
 };
 
 const useStore = create((set, get) => ({
     // State
-    userName: 'Guest',
-    status: 'idle', // idle, session, paused
-    currentPhase: null, // warmup, technique, athletics, music
+    userName: null,        // null = loading, '' = needs login, 'Name' = logged in
+    status: 'idle',
+    currentPhase: null,
     sessionTimeLeft: 0,
     reaperConnected: false,
 
@@ -28,23 +26,35 @@ const useStore = create((set, get) => ({
     init: async () => {
         try {
             const ipc = getIpc();
+            // This now returns the active profile data or null-ish if no user
             const data = await ipc.invoke('db:get');
-            set({ userName: data.user?.name || 'Guitarist' });
+            const name = data?.user?.name || '';
+            set({ userName: name || '' });
         } catch (e) {
-            console.error("Failed to init", e);
+            console.error('Failed to init store:', e);
+            set({ userName: '' });
+        }
+    },
+
+    setUserName: (name) => set({ userName: name }),
+
+    logout: async () => {
+        try {
+            const ipc = getIpc();
+            await ipc.invoke('db:login', null); // Setting current user to null in registry
+            set({ userName: '', status: 'idle', reaperConnected: false });
+        } catch (e) {
+            console.error('Logout failed:', e);
         }
     },
 
     launchReaper: async () => {
-        console.log("launchReaper action triggered");
         const ipc = getIpc();
         await ipc.invoke('reaper:launch');
-        // In a real app we'd poll for connection, here we assume success for UI
         set({ reaperConnected: true });
     },
 
     startSession: () => {
-        // Placeholder for session logic
         set({ status: 'session', currentPhase: 'warmup', sessionTimeLeft: 900 });
     }
 }));

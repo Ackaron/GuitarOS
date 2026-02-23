@@ -1,55 +1,32 @@
--- GuitarOS Listener Script
--- Polls reaper_cmd.json for commands
+-- GuitarOS Listener Script (Snapshot_3 Logic)
+-- Polls reaper_cmd.json via pointer file in TEMP
 
--- Dynamic path resolution: works in dev (D:/Project/GuitarOS1) and portable install
-local function get_cmd_path()
-  -- Option 1: environment variable set by the app (future-proof)
-  local env_path = os.getenv("GUITAROS_DATA")
-  if env_path and env_path ~= "" then
-    return env_path .. "/reaper_cmd.json"
-  end
-
-  -- Option 2: resolve relative to this script's location
-  -- Script is at: <root>/Source/scripts/reaper_listener.lua
-  --   or at:      <root>/Apps/Reaper/Reaper64/Scripts/reaper_listener.lua
-  -- Data is at:   <root>/Data/reaper_cmd.json
-  local script_path = ({reaper.get_action_context()})[2] or ""
-  local script_dir = script_path:match("(.+)[/\\][^/\\]+$") or ""
-
-  -- Walk up to find Data/ folder (try up to 5 levels)
-  local dir = script_dir
-  for _ = 1, 5 do
-    local candidate = dir .. "/Data/reaper_cmd.json"
-    local f = io.open(candidate, "r")
-    if f then
-      f:close()
-      return candidate
-    end
-    -- Also try without file existing (will be created by app on first command)
-    local data_dir = dir .. "/Data"
-    local test = io.open(data_dir, "r")
-    if test then
-      test:close()
-      return data_dir .. "/reaper_cmd.json"
-    end
-    dir = dir:match("(.+)[/\\][^/\\]+$") or dir
-  end
-
-  -- Hardcoded fallback (update if project moves)
-  return "D:/Project/GuitarOS1/Data/reaper_cmd.json"
-end
-
-local json_path = get_cmd_path()
 local last_timestamp = 0
 
 function log(msg)
   reaper.ShowConsoleMsg(msg .. "\n")
 end
 
-log("GuitarOS Listener: cmd file = " .. json_path)
+-- Dynamic path resolution: re-read pointer on EVERY poll so dev/installed paths always match
+local function get_cmd_path()
+  local temp = os.getenv("TEMP")
+  if temp then
+    local pointer = temp .. "\\guitaros_cmd_path.txt"
+    local f = io.open(pointer, "r")
+    if f then
+      local p = f:read("*l")
+      f:close()
+      if p and p ~= "" then
+        return p:gsub("\\", "/")
+      end
+    end
+  end
+  return nil
+end
 
--- Simple JSON parser (Robust enough for our needs)
+-- Simple JSON parser
 function parse_json(str)
+  if not str or str == "" then return nil end
   local data = {}
   data.action = str:match('"action":%s*"(.-)"')
   data.timestamp = str:match('"timestamp":%s*(%d+)')
@@ -60,6 +37,7 @@ function parse_json(str)
 end
 
 function read_file(path)
+    if not path then return nil end
     local f = io.open(path, "r")
     if not f then return nil end
     local content = f:read("*all")
@@ -68,17 +46,22 @@ function read_file(path)
 end
 
 function main()
+  -- Always re-read pointer file so path is current even after app restart
+  local json_path = get_cmd_path()
+  if not json_path then
+    reaper.defer(main)
+    return
+  end
+
   local content = read_file(json_path)
-  
-  if content then
+  if content and content ~= "" then
     local data = parse_json(content)
     
-    -- Check if new command and valid timestamp
-    if data.timestamp and tonumber(data.timestamp) > last_timestamp then
+    if data and data.timestamp and tonumber(data.timestamp) > last_timestamp then
       last_timestamp = tonumber(data.timestamp)
       
-        if data.action == "LOAD_EXERCISE" then
-        log("GuitarOS: Loading Exercise...")
+      if data.action == "LOAD_EXERCISE" then
+        log("GuitarOS (Snapshot_3): Loading Exercise...")
 
         -- 1. New Project (Clean Slate)
         -- Remove all tracks to ensure clean slate
@@ -111,7 +94,7 @@ function main()
         -- Input 2 (Mono) -> Value 1 (0-indexed)
         reaper.SetMediaTrackInfo_Value(tr_guitar, "I_RECINPUT", 1) 
         
-        -- Record Arm Off (User requested "запись выключена")
+        -- Record Arm Off
         reaper.SetMediaTrackInfo_Value(tr_guitar, "I_RECARM", 0)   
         
         -- Monitor On
@@ -147,11 +130,7 @@ function main()
             reaper.SetEditCurPos(0, false, false) -- Reset Cursor to 0
             reaper.InsertMedia(data.original, 0)
             
-            -- Muted by default or low volume? User said "podgruzhaem ... original separately".
-            -- Usually for reference. Let's keep it visible but maybe not muted if they want to hear it?
-            -- Previous code muted it. Let's keep it unmuted but lower volume? Or Muted?
-            -- "Original Separate" -> usually for A/B testing.
-            -- Let's MUTE it by default to avoid clash with backing, user can unmute.
+            -- Unmuted by default per Snapshot_3
             reaper.SetMediaTrackInfo_Value(tr_orig, "B_MUTE", 0)
             reaper.SetMediaTrackInfo_Value(tr_orig, "D_VOL", 1.0) 
             
@@ -167,11 +146,6 @@ function main()
       elseif data.action == "SET_BPM" then
           if data.bpm then
              log("GuitarOS: Updating BPM to " .. data.bpm)
-             -- Remove all tempo markers first to ensure clean state (or just update the first one)
-             -- To be safe, let's just set the project tempo.
-             -- reaper.SetCurrentBPM(0, tonumber(data.bpm), true) -- This changes playrate, not project tempo usually
-             
-             -- Better: Update the first tempo marker
              reaper.SetTempoTimeSigMarker(0, -1, 0, -1, -1, tonumber(data.bpm), 0, 0, false)
              reaper.UpdateTimeline()
           end
@@ -182,5 +156,5 @@ function main()
   reaper.defer(main)
 end
 
-log("GuitarOS Listener Running...")
+log("GuitarOS Listener Running (Snapshot_3 Logic)...")
 main()

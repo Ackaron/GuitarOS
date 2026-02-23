@@ -5,7 +5,13 @@
         "library": "Library",
         "progress": "Progress",
         "settings": "Settings",
-        "pro_account": "Pro Account"
+        "logout": "Log Out"
+    },
+    "login": {
+        "subtitle": "Practice Environment",
+        "name_label": "Your Name",
+        "name_placeholder": "Enter your name...",
+        "submit": "Start Practicing"
     },
     "dashboard": {
         "title": "Dashboard",
@@ -20,7 +26,7 @@
         "theory": "Theory",
         "technique": "Technique",
         "repertoire": "Repertoire",
-        "exercises": "Exercises",
+        "exercises": "Etude",
         "weekly": "WEEKLY",
         "goal": "GOAL",
         "key_center": "Key Center",
@@ -37,7 +43,7 @@
         "import_gp": "Import Guitar Pro File",
         "create_folder": "Create Folder",
         "all_items": "All Items",
-        "exercises": "Exercises",
+        "exercises": "Etude",
         "songs": "Songs",
         "theory": "Theory",
         "technique": "Technique",

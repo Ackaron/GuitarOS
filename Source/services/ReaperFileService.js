@@ -1,25 +1,17 @@
 /**
  * ReaperFileService.js — File-based IPC bridge for REAPER Lua scripts.
- *
- * REAPER's Lua listener script polls `reaper_cmd.json` for changes.
- * Writing to this file is the entry point for sending structured commands
- * that the Web Interface cannot handle (e.g. loading exercise tracks).
- *
- * The `timestamp` field is required to ensure the Lua script detects the change
- * even when the `action` field is identical to the previous write.
  */
 'use strict';
 
 const fs = require('fs-extra');
 const path = require('path');
-const { ROOT_PATH } = require('../config/dataPath');
+const os = require('os');
+const { USER_DATA_PATH } = require('../config/dataPath');
 
-const CMD_FILE_PATH = path.join(ROOT_PATH, 'reaper_cmd.json');
+const CMD_FILE_PATH = path.join(USER_DATA_PATH, 'reaper_cmd.json');
 
 /**
  * Write a command object to the bridge file.
- * @param {Object} command - Must contain at least an `action` string
- * @returns {Promise<{ success: boolean, error?: string }>}
  */
 async function sendCommand(command) {
     if (!command || !command.action) {
@@ -31,7 +23,16 @@ async function sendCommand(command) {
     try {
         await fs.ensureDir(path.dirname(CMD_FILE_PATH));
         await fs.writeJson(CMD_FILE_PATH, payload, { spaces: 2 });
-        console.log('ReaperFileService — wrote command:', payload.action);
+
+        // Write pointer for Reaper listener
+        try {
+            const pointerPath = path.join(os.tmpdir(), 'guitaros_cmd_path.txt');
+            await fs.writeFile(pointerPath, CMD_FILE_PATH, 'utf8');
+        } catch (e) {
+            console.warn('ReaperFileService — failed to write pointer file:', e.message);
+        }
+
+        console.log('[ReaperFileService] wrote command:', payload.action, 'TS:', payload.timestamp);
         return { success: true };
     } catch (err) {
         console.error('ReaperFileService — write failed:', err);

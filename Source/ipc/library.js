@@ -1,9 +1,10 @@
 /**
- * ipc/library.js — IPC handlers for the file-system Library and Routine.
+ * ipc/library.js — IPC handlers for the file-system Library.
  */
 'use strict';
 
 const { ipcMain, dialog } = require('electron');
+const fs = require('fs-extra');
 const path = require('path');
 const LibraryService = require('../services/LibraryService');
 const RoutineService = require('../services/RoutineService');
@@ -92,7 +93,7 @@ function registerLibraryHandlers() {
      */
     ipcMain.handle('library:update-metadata', async (_event, { fsName, id, metadata, parent, category }) => {
         let finalFsName = fsName;
-        let finalParent = parent || (category === 'Exercises' ? 'Exercises' : category === 'Songs' ? 'Songs' : null);
+        let finalParent = parent || (category === 'Exercises' ? 'Etude' : category === 'Songs' ? 'Songs' : null);
 
         // Fallback: If fsName invalid or missing, lookup by ID in catalog
         if (!finalFsName || finalFsName === id) {
@@ -114,9 +115,16 @@ function registerLibraryHandlers() {
         return result;
     });
 
-    // Generate a daily practice routine
-    ipcMain.handle('routine:generate', async (_event, { minutes, modules }) => {
-        return await RoutineService.generateRoutine(minutes, modules);
+
+    // Read a file as buffer (for binary files like .gp)
+    ipcMain.handle('fs:read-file', async (_event, filePath) => {
+        try {
+            const buffer = await fs.readFile(filePath);
+            return buffer; // Electron automatically converts Buffer to Uint8Array/ArrayBuffer for the renderer
+        } catch (err) {
+            console.error('fs:read-file failed:', err);
+            return null;
+        }
     });
 }
 

@@ -5,33 +5,60 @@
 :root {
   --background: #0F111A;
   --foreground: #ededed;
-  
-  --primary-accent: #00FF41;
-  --secondary-accent: #FFB86C;
+  --primary-accent: #EF4444;
+  --secondary-accent: #3B82F6;
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', sans-serif;
-  overflow: hidden; /* App-like feel */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar styling */
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0F111A; 
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333; 
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #555; 
+  background: rgba(255, 255, 255, 0.15);
 }
 
+/* ── Selection ── */
+::selection {
+  background: rgba(239, 68, 68, 0.3);
+  color: white;
+}
+
+/* ── Focus rings ── */
+*:focus-visible {
+  outline: 2px solid rgba(239, 68, 68, 0.5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── GPU-accelerated transitions ── */
+.transition-all,
+.transition-colors,
+.transition-transform,
+.transition-opacity {
+  will-change: auto;
+  transform: translateZ(0);
+}
+
+/* ── No-drag utility ── */
 .no-drag {
   -webkit-app-region: no-drag;
 }

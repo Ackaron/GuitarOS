@@ -1,6 +1,6 @@
 {
   "name": "guitaros-portable",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Guitar learning and practice OS",
   "author": "Ackaron",
   "private": true,
@@ -12,10 +12,11 @@
     "dist": "npm run build && electron-builder",
     "dist:portable": "npm run build && electron-builder --win portable",
     "dist:installer": "npm run build && electron-builder --win nsis",
+    "archive-release": "node scripts/archive-release.js",
     "pack": "electron-builder --dir"
   },
   "build": {
-    "appId": "com.guitaros.portable",
+    "appId": "com.guitaros.app",
     "productName": "GuitarOS",
     "win": {
       "target": [
@@ -35,8 +36,8 @@
       "shortcutName": "GuitarOS",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "GuitarOS_Setup.exe",
-      "deleteAppDataOnUninstall": false,
+      "artifactName": "GuitarOS-Setup-${version}.exe",
+      "deleteAppDataOnUninstall": true,
       "include": "../installer/components.nsh",
       "warningsAsErrors": false
     },
@@ -45,14 +46,14 @@
     },
     "extraFiles": [
       {
-        "from": "../Apps",
+        "from": "./Apps",
         "to": "Apps",
         "filter": [
           "**/*"
         ]
       },
       {
-        "from": "../Data",
+        "from": "./Data",
         "to": "Data",
         "filter": [
           "**/*"
@@ -77,6 +78,7 @@
     "asar": true
   },
   "dependencies": {
+    "@coderline/alphatab": "^1.8.1",
     "fs-extra": "^11.3.3",
     "lowdb": "^7.0.0",
     "lucide-react": "^0.330.0",

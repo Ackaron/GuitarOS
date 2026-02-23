@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const { initDB } = require('./db');
+const { getUserDB } = require('./db');
 const LibraryService = require('./LibraryService');
 
 class AnalyticsService {
@@ -16,7 +16,7 @@ class AnalyticsService {
 
     /** Global KPI snapshot (hours, check-ins, level, active days). */
     async getGlobalStats() {
-        const db = await initDB();
+        const db = getUserDB();
         await db.read();
         const data = db.data;
 
@@ -37,7 +37,7 @@ class AnalyticsService {
 
     /** Flat chronological list of all history entries across all exercises. */
     async getGlobalHistory() {
-        const db = await initDB();
+        const db = getUserDB();
         await db.read();
 
         const allHistory = [];
@@ -53,7 +53,7 @@ class AnalyticsService {
 
     /** Activity heatmap data: { date: 'YYYY-MM-DD', count: number }[] */
     async getHeatmapData() {
-        const db = await initDB();
+        const db = getUserDB();
         await db.read();
 
         const activityMap = {};
@@ -72,7 +72,7 @@ class AnalyticsService {
     /** Breakdown of sessions / hours / BPM growth by category. */
     async getCategoryBreakdown() {
         const catalog = await LibraryService.getCatalog();
-        const db = await initDB();
+        const db = getUserDB();
         await db.read();
 
         const stats = {
@@ -118,7 +118,7 @@ class AnalyticsService {
      * Optionally filtered by category name or a specific item ID.
      */
     async getMasteryTrend(categoryFilter = null, itemId = null) {
-        const db = await initDB();
+        const db = getUserDB();
         await db.read();
         const catalog = await LibraryService.getCatalog();
 
@@ -226,7 +226,7 @@ class AnalyticsService {
 
     /** Per-item BPM history for the detail drill-down chart. */
     async getItemHistory(id) {
-        const db = await initDB();
+        const db = getUserDB();
         await db.read();
         const item = (db.data.exercises || []).find(e => e.id === id);
         if (!item || !item.history) return [];
@@ -241,7 +241,7 @@ class AnalyticsService {
 
     /** Reset all history and global statistics. */
     async clearHistory() {
-        const db = await initDB();
+        const db = getUserDB();
         await db.read();
 
         if (db.data.user) db.data.user.totalCheckins = 0;

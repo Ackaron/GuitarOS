@@ -5,15 +5,15 @@
 
 const fs = require('fs-extra');
 const path = require('path');
-const { ROOT_PATH } = require('../config/dataPath');
+const { USER_DATA_PATH } = require('../config/dataPath');
 
-const PREFS_PATH = path.join(ROOT_PATH, 'user_preferences.json');
+const PREFS_PATH = path.join(USER_DATA_PATH, 'user_preferences.json');
 
 class UserPreferencesService {
     constructor() {
         this.defaultPrefs = {
             general: {
-                language: 'en',
+                language: 'ru',
                 launchReaper: true,
                 launchGuitarPro: true
             },
@@ -21,7 +21,7 @@ class UserPreferencesService {
                 modules: [
                     { id: 'theory', type: 'theory', target: 'C Major', percentage: 15 },
                     { id: 'technique', type: 'technique', target: ['Alternate Picking'], percentage: 25 },
-                    { id: 'exercises', type: 'exercise', strategy: 'folder', target: 'Exercises', percentage: 20 },
+                    { id: 'exercises', type: 'exercise', strategy: 'item', target: '', percentage: 20 },
                     { id: 'song', type: 'repertoire', target: 'monthly', percentage: 40 }
                 ]
             },
@@ -66,7 +66,27 @@ class UserPreferencesService {
     async savePreferences(newPrefs) {
         try {
             const current = await this.getPreferences();
-            const updated = { ...current, ...newPrefs };
+
+            // Simple deep merge for the 2-level structure we have
+            const updated = { ...current };
+            for (const key in newPrefs) {
+                if (typeof newPrefs[key] === 'object' && newPrefs[key] !== null && !Array.isArray(newPrefs[key])) {
+                    updated[key] = { ...(updated[key] || {}), ...newPrefs[key] };
+
+                    // Sanitization: Ensure launch flags are booleans if they exist in the update
+                    if (key === 'general') {
+                        if (newPrefs.general.hasOwnProperty('launchReaper')) {
+                            updated.general.launchReaper = !!newPrefs.general.launchReaper;
+                        }
+                        if (newPrefs.general.hasOwnProperty('launchGuitarPro')) {
+                            updated.general.launchGuitarPro = !!newPrefs.general.launchGuitarPro;
+                        }
+                    }
+                } else {
+                    updated[key] = newPrefs[key];
+                }
+            }
+
             await fs.writeJson(PREFS_PATH, updated, { spaces: 2 });
             return { success: true, prefs: updated };
         } catch (err) {

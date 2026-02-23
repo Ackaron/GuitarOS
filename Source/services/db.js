@@ -1,22 +1,32 @@
 /**
- * db.js — lowdb JSON database initialisation.
- *
- * All modules that need the DB should call `initDB()` and await the result.
- * The singleton pattern ensures the file is opened only once per process.
+ * db.js — Manages per-user profile databases using lowdb.
+ * 
+ * Separates a global registry (db.json) from user-specific data (profiles/Name.json).
  */
 'use strict';
 
 const path = require('path');
-const { ROOT_PATH } = require('../config/dataPath');
+const fs = require('fs-extra');
+const { USER_DATA_PATH } = require('../config/dataPath');
 
-const dbPath = path.join(ROOT_PATH, 'db.json');
+const registryPath = path.join(USER_DATA_PATH, 'db.json');
+const profilesDir = path.join(USER_DATA_PATH, 'profiles');
 
-/** Default data structure for a fresh install. */
-const defaultData = {
-    user: { name: 'Guitarist', totalCheckins: 0 },
-    exercises: [], // { id, title, bpm, tags, history: [{ date, bpm, rating }] }
-    history: [],   // Global session history (reserved for future use)
-    pins: {        // Monthly focus items
+/** Default structure for the global registry. */
+const defaultRegistry = {
+    users: [], // List of user names
+    lastUser: null,
+    settings: {
+        theme: 'dark'
+    }
+};
+
+/** Default structure for a single user's profile. */
+const defaultUserData = {
+    user: { name: '', totalCheckins: 0 },
+    exercises: [], // Individual progress (BPM, history)
+    history: [],
+    pins: {
         technique: null,
         song: null,
         athletics: null
@@ -26,14 +36,110 @@ const defaultData = {
     }
 };
 
-let db;
+let registryDB = null;
+let userDB = null;
+let currentUserName = null;
 
+/**
+ * Initialise the global registry database and ensure profiles dir exists.
+ */
 async function initDB() {
-    if (!db) {
-        const { JSONFilePreset } = await import('lowdb/node');
-        db = await JSONFilePreset(dbPath, defaultData);
+    const { JSONFilePreset } = await import('lowdb/node');
+
+    await fs.ensureDir(profilesDir);
+
+    // 1. Load Registry
+    if (!registryDB) {
+        console.log('Database — Loading registry from:', registryPath);
+        registryDB = await JSONFilePreset(registryPath, defaultRegistry);
+        await registryDB.read();
+
+        // Extra Defensive check
+        if (!registryDB || !registryDB.data) {
+            console.warn('Database — Registry data missing after load, using defaults.');
+            registryDB.data = { ...defaultRegistry };
+        }
+        if (!registryDB.data.users) registryDB.data.users = [];
     }
-    return db;
+
+    // 2. Auto-load last user if possible
+    if (registryDB.data.lastUser && !userDB) {
+        await switchUser(registryDB.data.lastUser);
+    }
+
+    return registryDB;
 }
 
-module.exports = { initDB };
+/**
+ * Switch the active user. Loads or creates their specific JSON file.
+ */
+async function switchUser(name) {
+    if (!name) return;
+    const { JSONFilePreset } = await import('lowdb/node');
+
+    const profilePath = path.join(profilesDir, `${name}.json`);
+
+    // Create new user profile if it doesn't exist
+    userDB = await JSONFilePreset(profilePath, {
+        ...defaultUserData,
+        user: { ...defaultUserData.user, name }
+    });
+    await userDB.read();
+
+    currentUserName = name;
+
+    // Update registry
+    if (registryDB) {
+        if (!registryDB.data) registryDB.data = { ...defaultRegistry };
+        if (!registryDB.data.users) registryDB.data.users = [];
+
+        if (!registryDB.data.users.includes(name)) {
+            registryDB.data.users.push(name);
+        }
+        registryDB.data.lastUser = name;
+        await registryDB.write();
+    }
+
+    console.log(`Database — Switched to user: ${name}`);
+}
+
+/**
+ * Get the active user's database instance.
+ */
+function getUserDB() {
+    if (!userDB) {
+        // Fallback for when no user is logged in yet
+        return {
+            data: { ...defaultUserData },
+            read: async () => { },
+            write: async () => { }
+        };
+    }
+    return userDB;
+}
+
+/**
+ * Clear the current user context (Logout).
+ */
+async function clearUser() {
+    userDB = null;
+    currentUserName = null;
+    if (registryDB) {
+        if (!registryDB.data) registryDB.data = { ...defaultRegistry };
+        registryDB.data.lastUser = null;
+        await registryDB.write();
+    }
+}
+
+function getCurrentUser() {
+    return currentUserName;
+}
+
+module.exports = {
+    initDB,
+    getUserDB,
+    switchUser,
+    clearUser,
+    getCurrentUser,
+    defaultUserData
+};

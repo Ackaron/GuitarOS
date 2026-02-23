@@ -1,28 +1,64 @@
 /**
  * ipc/db.js — IPC handlers for the low-level database (lowdb) and
- *             the BPM-progression update logic that lives in main.js.
+ *             the BPM-progression update logic.
  */
 'use strict';
 
 const { ipcMain } = require('electron');
-const { initDB } = require('../services/db');
+const { initDB, getUserDB, switchUser, clearUser, getCurrentUser } = require('../services/db');
 const LibraryService = require('../services/LibraryService');
 const UserPreferencesService = require('../services/UserPreferencesService');
 
 function registerDbHandlers() {
 
-    // Read the entire DB state
+    // Get the common database data
     ipcMain.handle('db:get', async () => {
-        const db = await initDB();
+        const db = getUserDB();
+        await db.read();
+        return db.data;
+    });
+
+    // Login/Switch User
+    ipcMain.handle('db:login', async (_event, name) => {
+        if (!name) {
+            await clearUser();
+            return { success: true };
+        }
+        await switchUser(name);
+        const db = getUserDB();
+        await db.read();
+        return { success: true, data: db.data };
+    });
+
+    // Compatibility aliases for frontend
+    ipcMain.handle('db:set-user', async (_event, name) => {
+        await switchUser(name);
+        return { success: true };
+    });
+
+    ipcMain.handle('db:clear-user', async () => {
+        await clearUser();
+        return { success: true };
+    });
+
+    // Logout
+    ipcMain.handle('db:logout', async () => {
+        await clearUser();
+        return { success: true };
+    });
+
+    // Get current profile
+    ipcMain.handle('db:get-profile', async () => {
+        const db = getUserDB();
         await db.read();
         return db.data;
     });
 
     // Overwrite the entire DB state (used by sync operations)
     ipcMain.handle('db:set', async (_event, newData) => {
-        const db = await initDB();
-        db.data = newData;
-        await db.write();
+        const userDb = getUserDB();
+        userDb.data = newData;
+        await userDb.write();
     });
 
     /**
@@ -32,14 +68,12 @@ function registerDbHandlers() {
      *   'easy'   → +2 BPM
      *   'hard'   → -2 BPM (min 40)
      *   'manual' → use explicitBpm directly
-     *
-     * Also stores a history entry and updates global check-in count.
      */
     ipcMain.handle('library:update-progress', async (
         _event,
         { id, rating, explicitBpm, confidence, bpm: baselineBpm, duration, actualDuration, plannedDuration }
     ) => {
-        const db = await initDB();
+        const db = getUserDB();
         await db.read();
 
         const exercises = db.data.exercises || [];
@@ -89,12 +123,13 @@ function registerDbHandlers() {
 
         item.history.push(historyEntry);
 
-        // Update tracked BPM — lastSuccessBPM stores the tempo they actually played at
+        // Update tracked BPM
         item.bpm = newBpm;
         item.lastSuccessBPM = baselineBpm || oldBpm;
         item.lastPlayed = new Date().toISOString();
 
         // Update global check-in counter
+        if (!db.data.user) db.data.user = { name: getCurrentUser(), totalCheckins: 0 };
         if (!db.data.user.totalCheckins) db.data.user.totalCheckins = 0;
         db.data.user.totalCheckins++;
 

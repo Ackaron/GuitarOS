@@ -1,19 +1,24 @@
 const path = require('path');
+const { app } = require('electron');
 
-// Helper to get absolute path from relative root
+const isPackaged = app ? app.isPackaged : false;
+
+/**
+ * getAppPath — Resolves paths to bundled applications (REAPER, Guitar Pro).
+ * 
+ * In production (portable or installed), bundled apps are always siblings
+ * to the extracted/installed executable. 
+ * 
+ * NOTE: We do NOT use PORTABLE_EXECUTABLE_DIR here because bundled apps 
+ * are extracted to a temp folder, not left in the Downloads/Original folder.
+ */
 const getAppPath = (relativePath) => {
-    // Priority 1: Portable dir (set by NSIS portable)
-    // Priority 2: Executable location (standard for our Apps/Data siblings)
-    // Priority 3: Fallback to resourcesPath (standard Electron)
-    const baseDir = process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath);
-
-    // Development fallback
-    if (process.env.NODE_ENV !== 'production') {
-        return path.resolve(__dirname, '../../Apps', relativePath);
+    if (!isPackaged) {
+        return path.resolve(__dirname, '../Apps', relativePath);
     }
 
-    // Production (Portable or Installed)
-    // We expect Apps/ and Data/ to be siblings to the .exe in both cases
+    // Always use the directory of the currently running executable
+    const baseDir = path.dirname(process.execPath);
     return path.join(baseDir, 'Apps', relativePath);
 };
 

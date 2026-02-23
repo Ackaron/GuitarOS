@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
 const { initDB } = require('./services/db');
@@ -18,10 +18,21 @@ const { registerLibraryHandlers } = require('./ipc/library');
 const { registerDbHandlers } = require('./ipc/db');
 const { registerAnalyticsHandlers } = require('./ipc/analytics');
 const { registerPrefsHandlers } = require('./ipc/prefs');
+const { registerRoutineHandlers } = require('./ipc/routine');
 
 // ─── Environment ────────────────────────────────────────────────────────────
 
-const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
+const isDev = !app.isPackaged;
+
+// ─── IPC Registration (before window creation) ──────────────────────────────
+
+registerReaperHandlers();
+registerLibraryHandlers();
+registerDbHandlers();
+registerAnalyticsHandlers();
+registerPrefsHandlers();
+registerRoutineHandlers();
+ipcMain.handle('get-app-version', () => app.getVersion());
 
 // ─── Window ──────────────────────────────────────────────────────────────────
 
@@ -31,13 +42,13 @@ function createWindow() {
     height: 800,
     backgroundColor: '#0F111A',
     webPreferences: {
-      nodeIntegration: false,   // Security: disabled
-      contextIsolation: true,   // Security: enabled
+      nodeIntegration: false,
+      contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false        // Required for local file loading
+      webSecurity: false
     },
     autoHideMenuBar: true,
-    title: 'GuitarOS Portable'
+    title: 'GuitarOS'
   });
 
   if (isDev) {
@@ -53,7 +64,11 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   await initDB();
-  await ReaperService.configureWebInterface();
+
+  // Non-blocking REAPER config — don't prevent app from starting
+  ReaperService.configureWebInterface().catch(err => {
+    console.warn('REAPER auto-config skipped:', err.message);
+  });
 
   createWindow();
 
@@ -69,11 +84,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-
-// ─── IPC Registration ────────────────────────────────────────────────────────
-
-registerReaperHandlers();
-registerLibraryHandlers();
-registerDbHandlers();
-registerAnalyticsHandlers();
-registerPrefsHandlers();

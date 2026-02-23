@@ -145,7 +145,7 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                         )}
 
                         {/* STANDARD EXERCISE (ETUDE) - Restricted to Etude folder per user request */}
-                        {module.type === 'exercise' && module.id === 'exercise' && (
+                        {module.type === 'exercise' && (module.id === 'exercise' || module.id === 'exercises') && (
                             <SearchableSelect
                                 options={catalog.items
                                     // Strictly filter by "Etude" category to avoid showing other folders
@@ -164,7 +164,7 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                         )}
 
                         {/* CUSTOM GOAL - Full Power */}
-                        {module.type === 'exercise' && module.id !== 'exercise' && (
+                        {module.type === 'exercise' && module.id !== 'exercise' && module.id !== 'exercises' && (
                             <div className="space-y-2">
                                 {/* Strategy Selector */}
                                 <div className="flex bg-[#0F111A] rounded p-1 gap-1">
