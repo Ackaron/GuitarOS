@@ -55,9 +55,9 @@ const SessionFocusTimer = ({
                     const isHigher = lastBpm !== '--' && currentBpm > lastBpm;
 
                     return (
-                        <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border flex items-center gap-2 transition-all ${isHigher
-                            ? 'bg-green-500/10 text-green-500 border-green-500/20 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
-                            : 'bg-white/5 text-gray-400 border-white/10'
+                        <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all ${isHigher
+                            ? 'text-green-500'
+                            : 'text-gray-500'
                             }`}>
                             <Activity size={14} />
                             <span>LAST: <span className="text-white">{lastBpm}</span></span>
@@ -145,7 +145,7 @@ const SessionFocusTimer = ({
                                             setIsEditingBpm(false);
                                             if (window.electronAPI) window.electronAPI.invoke('reaper:set-bpm', currentBpm);
                                         }}
-                                        className="w-16 bg-black/50 border border-blue-500 rounded px-1 text-xl font-mono text-white outline-none"
+                                        className="w-16 bg-transparent border-b border-[#E63946] rounded-none px-1 text-xl font-mono text-white outline-none"
                                     />
                                 </form>
                             ) : (
@@ -203,19 +203,19 @@ const SessionFocusTimer = ({
 
             {/* Timer */}
             <div className="mb-12">
-                <div className="text-[10rem] font-bold text-white font-mono leading-none tracking-tighter tabular-nums drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+                <div className="text-[10rem] font-bold text-white font-mono leading-none tracking-tighter tabular-nums drop-shadow-none">
                     {formatTime(stepTimer)}
                 </div>
                 <div className="flex gap-6 mt-8">
                     <button
                         onClick={onToggleTimer}
-                        className={`h-16 px-10 rounded-2xl font-bold text-xl transition-all flex items-center gap-3 shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:scale-105 active:scale-95 ${isTimerRunning
-                            ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black border border-yellow-300'
-                            : 'bg-gradient-to-br from-green-500 to-green-700 text-white border border-green-400'}`}
+                        className={`h-16 px-10 rounded-full font-bold text-sm tracking-widest uppercase transition-all flex items-center gap-3 ${isTimerRunning
+                            ? 'bg-white/10 text-white hover:bg-white/20'
+                            : 'bg-[#E63946] text-white hover:brightness-110'}`}
                     >
                         {isTimerRunning ? <span className="flex items-center gap-2">PAUSE</span> : <span className="flex items-center gap-2"><Play size={24} fill="currentColor" /> START SESSION</span>}
                     </button>
-                    <button onClick={() => onSetStepTimer(currentItem.duration)} className="h-16 w-16 rounded-2xl bg-[#1A1C28] text-gray-400 hover:text-white hover:bg-[#252836] transition-all flex items-center justify-center border border-white/10 shadow-lg hover:border-white/20">
+                    <button onClick={() => onSetStepTimer(currentItem.duration)} className="h-16 w-16 rounded-full bg-transparent text-gray-500 hover:text-white transition-all flex items-center justify-center hover:bg-white/5">
                         <Settings size={24} />
                     </button>
                 </div>
@@ -226,13 +226,13 @@ const SessionFocusTimer = ({
                 <button
                     onClick={onPrev}
                     disabled={currentStepIndex === 0}
-                    className="h-14 w-14 rounded-xl bg-white/5 hover:bg-white/10 text-white flex items-center justify-center disabled:opacity-20 transition-all border border-white/5"
+                    className="h-14 w-14 rounded-full bg-transparent hover:bg-white/5 text-gray-500 hover:text-white flex items-center justify-center disabled:opacity-20 transition-all border-none"
                 >
                     <ChevronLeft size={24} />
                 </button>
                 <button
                     onClick={onNextWithFeedback}
-                    className="h-14 flex-1 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center gap-2 transition-all border border-white/5 hover:border-red-500/30 hover:text-red-400"
+                    className="h-14 px-8 rounded-full bg-transparent hover:bg-white/5 text-gray-400 font-bold tracking-widest flex items-center justify-center gap-2 transition-all border border-white/20 hover:border-white/40 hover:text-white"
                 >
                     <span>NEXT STEP</span>
                     <ChevronLeft className="rotate-180" size={20} />

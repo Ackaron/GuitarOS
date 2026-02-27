@@ -1,11 +1,11 @@
 import React from 'react';
 
 export function Button({ children, onClick, variant = 'primary', className = '' }) {
-    const baseStyle = "px-6 py-2 rounded font-medium transition-all duration-200 uppercase tracking-wider text-sm";
+    const baseStyle = "px-6 py-2.5 rounded-full font-medium transition-all duration-300 text-sm flex items-center justify-center";
     const variants = {
-        primary: "bg-[#00FF41] text-black hover:bg-[#00CC33] hover:shadow-[0_0_10px_#00FF41]", // Matrix Green
-        secondary: "bg-[#FFB86C] text-black hover:bg-[#E0A050]", // Amber
-        outline: "border border-white/20 text-white hover:bg-white/10"
+        primary: "bg-[#E63946] text-white hover:brightness-110", // Sharp crisp red, no shadows
+        secondary: "bg-transparent text-gray-400 hover:text-white", // Ghost button
+        outline: "border-b border-white/20 text-gray-300 hover:text-white hover:border-white rounded-none px-2 py-1" // Minimal underline action
     };
 
     return (
@@ -17,8 +17,8 @@ export function Button({ children, onClick, variant = 'primary', className = '' 
 
 export function Card({ children, title, className = '' }) {
     return (
-        <div className={`bg-[#151722] border border-white/5 p-6 rounded-xl ${className}`}>
-            {title && <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-4 font-mono">{title}</h3>}
+        <div className={`p-6 ${className}`}>
+            {title && <h3 className="text-gray-500 text-xs font-medium tracking-widest uppercase mb-6">{title}</h3>}
             {children}
         </div>
     );

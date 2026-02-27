@@ -73,13 +73,13 @@ const SessionTopNav = ({
             <div className="flex gap-2">
                 <button
                     onClick={() => setViewMode('timer')}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${viewMode === 'timer' ? 'bg-red-500 text-white border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'bg-white/5 text-gray-500 border-white/5 hover:text-white hover:bg-white/10'}`}
+                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${viewMode === 'timer' ? 'bg-[#E63946] text-white' : 'bg-transparent text-gray-500 hover:text-white hover:bg-white/5'}`}
                 >
                     Focus
                 </button>
                 <button
                     onClick={() => setViewMode('tab')}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${viewMode === 'tab' ? 'bg-blue-500 text-white border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]' : 'bg-white/5 text-gray-500 border-white/5 hover:text-white hover:bg-white/10'}`}
+                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${viewMode === 'tab' ? 'bg-[#E63946] text-white' : 'bg-transparent text-gray-500 hover:text-white hover:bg-white/5'}`}
                 >
                     Tab
                 </button>

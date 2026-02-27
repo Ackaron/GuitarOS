@@ -7,10 +7,6 @@ import { useLanguage } from '../context/LanguageContext';
 export default function ModuleConfig({ modules, setModules, catalog, onGenerate }) {
     const { t, language } = useLanguage();
 
-    // Split modules into categories
-    const routineModules = modules.filter(m => ['theory', 'technique'].includes(m.type));
-    const goalModules = modules.filter(m => ['exercise', 'repertoire'].includes(m.type));
-
     // Get unique folders
     const folders = [...new Set(catalog.items.map(i => i.category).filter(Boolean))].sort();
 
@@ -18,9 +14,65 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
     const isValid = totalPercentage === 100;
 
     const [editingId, setEditingId] = useState(null);
+    const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+    const [draggedIdx, setDraggedIdx] = useState(null);
+    const [dragEnabledId, setDragEnabledId] = useState(null);
 
-    const handleAddModule = () => {
-        setModules([...modules, { id: Date.now(), type: 'exercise', strategy: 'item', target: '', percentage: 10 }]);
+    const handleDragStart = (e, index) => {
+        setDraggedIdx(index);
+        // This is needed for Firefox
+        if (e.dataTransfer) {
+            e.dataTransfer.setData('text/plain', index);
+            e.dataTransfer.effectAllowed = "move";
+        }
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault(); // Necessary to allow dropping
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    };
+
+    const handleDrop = (e, targetIndex) => {
+        e.preventDefault();
+        if (draggedIdx === null || draggedIdx === targetIndex) {
+            setDraggedIdx(null);
+            return;
+        }
+
+        const newModules = [...modules];
+        const [removed] = newModules.splice(draggedIdx, 1);
+        newModules.splice(targetIndex, 0, removed);
+
+        setModules(newModules);
+        setDraggedIdx(null);
+    };
+
+    const handleAddIntent = (intentType) => {
+        setIsAddMenuOpen(false);
+
+        const baseModule = {
+            id: Date.now(),
+            percentage: 10,
+            target: '',
+            customNames: {}
+        };
+
+        switch (intentType) {
+            case 'theory':
+                setModules([...modules, { ...baseModule, type: 'theory', customNames: { ru: 'Теория', en: 'Theory' } }]);
+                break;
+            case 'technique':
+                setModules([...modules, { ...baseModule, type: 'technique', customNames: { ru: 'Техника', en: 'Technique' } }]);
+                break;
+            case 'exercise':
+                setModules([...modules, { ...baseModule, type: 'exercise', customNames: { ru: 'Этюд', en: 'Etude' } }]);
+                break;
+            case 'repertoire':
+                setModules([...modules, { ...baseModule, type: 'repertoire', customNames: { ru: 'Репертуар', en: 'Repertoire' } }]);
+                break;
+            default:
+                break;
+        }
     };
 
     const handleRemoveModule = (id) => {
@@ -36,20 +88,15 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
         }
     };
 
-    const renderModuleCard = (module) => {
-        let icon = <Zap size={20} />;
-        let colorClass = "border-l-4 border-l-yellow-500";
+    const renderModuleCard = (module, index) => {
+        let icon = <Zap size={20} className="text-yellow-400" />;
         let defaultLabel = "Exercise";
 
-        if (module.type === 'theory') { icon = <BookOpen size={20} />; colorClass = "border-l-4 border-l-blue-500"; defaultLabel = t('module.theory'); }
-        if (module.type === 'technique') { icon = <Dumbbell size={20} />; colorClass = "border-l-4 border-l-red-500"; defaultLabel = t('module.technique'); }
-        if (module.type === 'repertoire') { icon = <Music size={20} />; colorClass = "border-l-4 border-l-purple-500"; defaultLabel = t('module.repertoire'); }
-        if (module.type === 'exercise') { icon = <Zap size={20} />; colorClass = "border-l-4 border-l-green-500"; defaultLabel = t('module.exercises'); }
+        if (module.type === 'theory') { icon = <BookOpen size={20} className="text-blue-400" />; defaultLabel = t('module.theory'); }
+        if (module.type === 'technique') { icon = <Dumbbell size={20} className="text-red-400" />; defaultLabel = t('module.technique'); }
+        if (module.type === 'repertoire') { icon = <Music size={20} className="text-purple-400" />; defaultLabel = t('module.repertoire'); }
+        if (module.type === 'exercise') { icon = <Zap size={20} className="text-green-400" />; defaultLabel = t('module.exercises'); }
 
-        // Logic for localized custom names:
-        // 1. Try specific language override (module.customNames[lang])
-        // 2. Try fallback generic customName (legacy)
-        // 3. Use default localized standard label
         let label = defaultLabel;
 
         if (module.customNames && module.customNames[language]) {
@@ -59,11 +106,28 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
         }
 
         const isWeekly = ['theory', 'technique'].includes(module.type);
+        const isDragging = draggedIdx === index;
 
         return (
-            <div key={module.id} className={`bg-[#1A1D2D] rounded-lg p-5 border border-white/5 relative group hover:border-white/10 transition-all shadow-lg ${colorClass}`}>
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-2 text-white font-bold uppercase tracking-wider text-sm w-full">
+            <div
+                key={module.id}
+                draggable={dragEnabledId === module.id}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, index)}
+                style={{ zIndex: 100 - index }}
+                className={`p-6 border border-white/[0.05] rounded-2xl relative group transition-all h-full flex flex-col justify-between 
+                ${isDragging ? 'opacity-40 bg-white/5 scale-95' : 'bg-white/[0.02] hover:bg-white/[0.04]'}`}
+            >
+                <div className="flex justify-between items-start mb-6">
+                    <div className="flex items-center gap-4 text-white font-medium tracking-wide text-sm w-full">
+                        <div
+                            className="cursor-grab hover:text-white text-gray-600 active:cursor-grabbing mr-1 flex items-center justify-center p-1"
+                            onMouseEnter={() => setDragEnabledId(module.id)}
+                            onMouseLeave={() => setDragEnabledId(null)}
+                        >
+                            <GripVertical size={16} />
+                        </div>
                         {icon}
 
                         {editingId === module.id ? (
@@ -92,12 +156,12 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                                         setEditingId(null);
                                     }
                                 }}
-                                className="bg-white/10 text-white px-2 py-1 rounded outline-none border border-white/20 w-32"
+                                className="bg-transparent text-white px-0 py-1 border-b border-white/20 outline-none w-48 text-lg font-normal"
                             />
                         ) : (
                             <span
                                 onClick={() => setEditingId(module.id)}
-                                className="cursor-pointer hover:text-cyan-400 hover:underline decoration-dashed underline-offset-4"
+                                className="cursor-pointer text-lg font-normal hover:text-white text-gray-200 transition-colors"
                                 title="Click to rename"
                             >
                                 {label}
@@ -105,9 +169,9 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                         )}
 
                         {isWeekly ? (
-                            <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded whitespace-nowrap">{t('module.weekly')}</span>
+                            <span className="ml-2 text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{t('module.weekly')}</span>
                         ) : (
-                            <span className="ml-2 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded whitespace-nowrap">{t('module.goal')}</span>
+                            <span className="ml-2 text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{t('module.goal')}</span>
                         )}
                     </div>
                     <button onClick={() => handleRemoveModule(module.id)} className="text-gray-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 ml-2">
@@ -118,7 +182,7 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                 <div className="space-y-4">
                     {/* Target Selector */}
                     <div>
-                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-1">
+                        <div className="text-[10px] text-gray-500 font-medium uppercase tracking-widest mb-2">
                             {module.type === 'theory' ? t('module.key_center') :
                                 module.type === 'technique' ? t('module.focus_tag') : t('module.select_file')}
                         </div>
@@ -144,8 +208,8 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                             />
                         )}
 
-                        {/* STANDARD EXERCISE (ETUDE) - Restricted to Etude folder per user request */}
-                        {module.type === 'exercise' && (module.id === 'exercise' || module.id === 'exercises') && (
+                        {/* STANDARD EXERCISE (ETUDE) */}
+                        {module.type === 'exercise' && (
                             <SearchableSelect
                                 options={catalog.items
                                     // Strictly filter by "Etude" category to avoid showing other folders
@@ -163,77 +227,6 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                             />
                         )}
 
-                        {/* CUSTOM GOAL - Full Power */}
-                        {module.type === 'exercise' && module.id !== 'exercise' && module.id !== 'exercises' && (
-                            <div className="space-y-2">
-                                {/* Strategy Selector */}
-                                <div className="flex bg-[#0F111A] rounded p-1 gap-1">
-                                    {['item', 'folder', 'tag', 'key'].map(s => (
-                                        <button
-                                            key={s}
-                                            onClick={() => updateModule(module.id, 'strategy', s)}
-                                            className={`flex-1 text-[10px] uppercase font-bold py-1 rounded transition-colors ${(module.strategy || 'item') === s
-                                                ? 'bg-green-500 text-black'
-                                                : 'text-gray-500 hover:text-white'
-                                                }`}
-                                        >
-                                            {s === 'item' ? 'Specific' : s}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Target Selector based on Strategy */}
-                                {(!module.strategy || module.strategy === 'item') && (
-                                    <SearchableSelect
-                                        options={catalog.items
-                                            // Allow ALL playable items (Theory, Songs, Exercises)
-                                            .map(i => ({
-                                                label: i.category && i.category !== 'Exercises' ? `${i.category}: ${i.title}` : i.title,
-                                                value: i.id
-                                            }))
-                                        }
-                                        value={module.target}
-                                        onChange={(val) => updateModule(module.id, 'target', val)}
-                                        placeholder="Pick any track..."
-                                    />
-                                )}
-
-                                {module.strategy === 'folder' && (
-                                    <select
-                                        value={module.target}
-                                        onChange={(e) => updateModule(module.id, 'target', e.target.value)}
-                                        className="w-full bg-[#0F111A] text-white border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-green-500"
-                                    >
-                                        <option value="">Select Folder...</option>
-                                        {folders.map(f => (
-                                            <option key={f} value={f}>{f}</option>
-                                        ))}
-                                    </select>
-                                )}
-
-                                {module.strategy === 'tag' && (
-                                    <SearchableSelect
-                                        options={catalog.tags || []}
-                                        value={module.target}
-                                        onChange={(val) => updateModule(module.id, 'target', val)}
-                                        placeholder={t('module.e.g_sweep')}
-                                        multi={true}
-                                        freeSolo={true}
-                                    />
-                                )}
-
-                                {module.strategy === 'key' && (
-                                    <SearchableSelect
-                                        options={catalog.keys || []}
-                                        value={module.target}
-                                        onChange={(val) => updateModule(module.id, 'target', val)}
-                                        placeholder={t('module.e_g_c_major')}
-                                        freeSolo={true}
-                                    />
-                                )}
-                            </div>
-                        )}
-
                         {module.type === 'repertoire' && (
                             <SearchableSelect
                                 options={catalog.items
@@ -248,10 +241,10 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                     </div>
 
                     {/* Percentage */}
-                    <div>
-                        <div className="flex justify-between items-end mb-1">
-                            <div className="text-[10px] text-gray-500 font-bold uppercase">{t('module.allocated_time')}</div>
-                            <div className="text-sm font-mono text-white font-bold">{module.percentage}%</div>
+                    <div className="pt-4 border-t border-white/[0.05]">
+                        <div className="flex justify-between items-end mb-2">
+                            <div className="text-[10px] text-gray-500 font-medium uppercase tracking-widest">{t('module.allocated_time')}</div>
+                            <div className="text-sm font-light text-white">{module.percentage}%</div>
                         </div>
                         <input
                             type="range"
@@ -260,7 +253,9 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                             step="5"
                             value={module.percentage}
                             onChange={(e) => updateModule(module.id, 'percentage', Number(e.target.value))}
-                            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-gray-500 hover:accent-white transition-all"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            className="w-full h-[1px] bg-white/10 appearance-none cursor-pointer accent-[#E63946] hover:bg-white/30 transition-all z-10 relative"
                         />
                     </div>
                 </div>
@@ -272,41 +267,75 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
         <div className="flex flex-col h-full relative">
             <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar space-y-8 pb-32">
 
-                {/* Section 1: Routine Constructor */}
-                <section>
-                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-4">{t('module.routine_constructor')}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {routineModules.map(m => renderModuleCard(m))}
+                <section className="mb-8 relative z-20">
+                    <div className="flex items-center gap-3 mb-4 px-2">
+                        <h3 className="text-gray-400 text-sm font-bold uppercase tracking-widest">Сессия</h3>
+                        <div className="h-[1px] flex-1 bg-white/[0.05]"></div>
                     </div>
-                </section>
-
-                {/* Section 2: Goals */}
-                <section>
-                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-4">{t('module.monthly_goals')}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {goalModules.map(m => renderModuleCard(m))}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                        {modules.map((m, i) => renderModuleCard(m, i))}
                     </div>
                 </section>
 
             </div>
 
             {/* Footer Controls */}
-            <div className="absolute bottom-0 left-0 w-full pt-6 bg-gradient-to-t from-[#0F111A] via-[#0F111A] to-transparent flex items-center justify-between">
+            <div className="absolute bottom-0 left-0 w-full p-8 bg-[#0F111A]/90 backdrop-blur-lg border-t border-white/[0.02] flex items-center justify-between z-[999]">
 
-                <div className="flex items-center gap-4">
-                    <Button onClick={handleAddModule} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-orange-500/20 flex items-center gap-2">
-                        <Plus size={18} /> {t('dashboard.add_custom_goal')}
-                    </Button>
+                <div className="flex items-center gap-8 relative">
+                    <div className="relative">
+                        <Button
+                            onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
+                            variant="outline"
+                            className={`flex items-center gap-2 transition-all ${isAddMenuOpen ? 'border-[#E63946] text-[#E63946]' : ''}`}
+                        >
+                            <Plus size={16} className={`transition-transform duration-300 ${isAddMenuOpen ? 'rotate-45' : ''}`} /> {t('dashboard.add_custom_goal')}
+                        </Button>
 
-                    <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${isValid ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className={`font-mono font-bold ${isValid ? 'text-green-500' : 'text-red-500'}`}>{t('dashboard.total')}: {totalPercentage}%</span>
+                        {isAddMenuOpen && (
+                            <div className="absolute bottom-full left-0 mb-3 w-64 bg-[#1A1D27] border border-white/5 rounded-xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
+                                <button
+                                    onClick={() => handleAddIntent('theory')}
+                                    className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                >
+                                    <BookOpen size={16} className="text-blue-400" /> Теория (Theory)
+                                </button>
+                                <button
+                                    onClick={() => handleAddIntent('technique')}
+                                    className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                >
+                                    <Dumbbell size={16} className="text-red-400" /> Техника (Technique)
+                                </button>
+                                <button
+                                    onClick={() => handleAddIntent('exercise')}
+                                    className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                >
+                                    <Zap size={16} className="text-yellow-400" /> Этюд (Etude)
+                                </button>
+                                <button
+                                    onClick={() => handleAddIntent('repertoire')}
+                                    className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                >
+                                    <Music size={16} className="text-purple-400" /> Репертуар (Repertoire)
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Back-click closer */}
+                        {isAddMenuOpen && (
+                            <div className="fixed inset-0 z-40" onClick={() => setIsAddMenuOpen(false)}></div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className={`w-1.5 h-1.5 rounded-full ${isValid ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className={`text-xs uppercase tracking-widest ${isValid ? 'text-gray-400' : 'text-red-500'}`}>{t('dashboard.total')}: {totalPercentage}%</span>
                     </div>
                 </div>
 
                 <Button
                     onClick={isValid ? onGenerate : null}
-                    className={`py-3 px-8 text-lg font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all ${isValid ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-500/20' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                    className={`py-3 px-10 text-sm tracking-widest uppercase flex items-center gap-2 transition-all ${isValid ? 'bg-[#E63946] hover:brightness-110 text-white' : 'bg-transparent border border-white/5 text-gray-600 cursor-not-allowed'}`}
                 >
                     {t('dashboard.save_generate')}
                 </Button>

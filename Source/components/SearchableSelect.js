@@ -66,7 +66,7 @@ export default function SearchableSelect({
             return (
                 <div className="flex flex-wrap gap-1">
                     {safeValue.map(val => (
-                        <span key={val} className="bg-white/10 text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                        <span key={val} className="bg-white/5 text-xs px-2 py-1 flex items-center gap-1">
                             {val}
                             <X size={12} className="cursor-pointer hover:text-white" onClick={(e) => handleRemove(val, e)} />
                         </span>
@@ -83,7 +83,7 @@ export default function SearchableSelect({
     return (
         <div className="relative w-full" ref={wrapperRef}>
             <div
-                className="w-full bg-[#0F111A] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 min-h-[38px] flex items-center justify-between cursor-pointer hover:border-white/20 focus-within:border-blue-500 transition-colors"
+                className="w-full bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2 text-sm text-gray-300 min-h-[38px] flex items-center justify-between cursor-pointer hover:border-white/20 hover:bg-white/[0.04] focus-within:border-[#E63946] transition-all"
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <div className="flex-1">
@@ -93,11 +93,11 @@ export default function SearchableSelect({
             </div>
 
             {isOpen && (
-                <div className="absolute z-50 top-full left-0 w-full mt-1 bg-[#1A1D2D] border border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+                <div className="absolute z-50 top-full left-0 w-full mt-2 bg-[#0F111A] border border-white/[0.05] shadow-2xl max-h-60 overflow-y-auto custom-scrollbar">
                     <input
                         type="text"
                         autoFocus
-                        className="w-full bg-[#0F111A] border-b border-white/5 p-2 text-sm text-white focus:outline-none sticky top-0"
+                        className="w-full bg-[#0F111A] border-b border-white/[0.05] p-3 text-sm text-white focus:outline-none sticky top-0"
                         placeholder="Type to search..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -113,7 +113,7 @@ export default function SearchableSelect({
                             <div
                                 key={opt.value}
                                 onClick={() => handleSelect(opt.value)}
-                                className={`px-3 py-2 text-sm cursor-pointer flex justify-between items-center ${isSelected ? 'bg-blue-600/20 text-blue-400' : 'text-gray-300 hover:bg-white/5'}`}
+                                className={`px-4 py-3 text-sm cursor-pointer flex justify-between items-center ${isSelected ? 'text-[#E63946] bg-white/[0.02]' : 'text-gray-400 hover:text-white hover:bg-white/[0.02]'}`}
                             >
                                 <span>{opt.label}</span>
                                 {isSelected && <Check size={14} />}
@@ -126,7 +126,7 @@ export default function SearchableSelect({
                     {freeSolo && search && !filteredOptions.find(o => o.label === search) && (
                         <div
                             onClick={() => handleSelect(search)}
-                            className="px-3 py-2 text-sm cursor-pointer text-blue-400 hover:bg-white/5 border-t border-white/5"
+                            className="px-4 py-3 text-sm cursor-pointer text-[#E63946] hover:bg-white/[0.02] border-t border-white/[0.05]"
                         >
                             Use "{search}"
                         </div>

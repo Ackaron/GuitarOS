@@ -209,7 +209,7 @@ export default function Library({ onBack }) {
                         <input
                             type="text"
                             placeholder="Search..."
-                            className="w-full bg-[#1A1C28] border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-[#FF5555]/50 transition-colors"
+                            className="w-full bg-transparent border-b border-white/20 rounded-none py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-[#E63946] transition-colors"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -232,7 +232,7 @@ export default function Library({ onBack }) {
                     {isRoot && visibleLibraryData.map(folder => (
                         <div key={folder.id}
                             onClick={() => openFolder(folder.id)}
-                            className="relative aspect-[4/3] border border-red-500/30 rounded-xl bg-[#151722] flex flex-col items-center justify-center cursor-pointer hover:border-red-500 hover:shadow-[0_0_15px_rgba(255,85,85,0.15)] transition-all group"
+                            className="relative aspect-[4/3] border-b border-white/[0.05] bg-transparent flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.02] transition-all group"
                         >
                             <div
                                 onClick={(e) => {
@@ -265,7 +265,7 @@ export default function Library({ onBack }) {
                     {/* New Folder Button */}
                     <div
                         onClick={() => setModal({ type: 'create' })}
-                        className="aspect-[4/3] border border-red-500/30 border-dashed rounded-xl bg-[#151722]/50 flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 transition-all group"
+                        className="aspect-[4/3] border-b border-white/[0.05] border-dashed bg-transparent flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.02] transition-all group"
                     >
                         <div className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center mb-3 group-hover:bg-gray-600 transition-colors">
                             <Plus size={32} className="text-white" />
@@ -278,7 +278,7 @@ export default function Library({ onBack }) {
                         item.type === 'folder' ? (
                             <div key={item.id}
                                 onClick={() => openFolder(currentPath + '/' + item.name)}
-                                className="relative aspect-[4/3] border border-red-500/30 rounded-xl bg-[#151722] flex flex-col items-center justify-center cursor-pointer hover:border-red-500 hover:shadow-[0_0_15px_rgba(255,85,85,0.15)] transition-all group"
+                                className="relative aspect-[4/3] border-b border-white/[0.05] bg-transparent flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.02] transition-all group"
                             >
                                 <div
                                     onClick={(e) => {
@@ -296,7 +296,7 @@ export default function Library({ onBack }) {
                         ) : (
                             <div key={item.id}
                                 onClick={() => handleFileClick(item)}
-                                className="relative min-w-[200px] h-[100px] border border-red-500/30 rounded-lg bg-[#151722] p-4 flex flex-col justify-between hover:bg-red-500/5 hover:border-red-500/60 cursor-pointer transition-all group overflow-hidden"
+                                className="relative min-w-[200px] h-[100px] border-b border-white/[0.05] bg-transparent p-4 flex flex-col justify-between hover:bg-white/[0.02] cursor-pointer transition-all group overflow-hidden"
                                 title={item.fsName}
                             >
                                 <div

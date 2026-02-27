@@ -151,15 +151,12 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
             />
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto relative z-0 bg-gradient-to-br from-[#0F111A] via-[#13151F] to-[#0F111A]">
-                {/* Background Ambient Glow */}
-                <div className="absolute top-0 left-0 w-full h-[500px] bg-red-600/5 blur-[120px] rounded-full pointer-events-none" />
-
+            <main className="flex-1 overflow-y-auto relative z-0 bg-[#0F111A]">
                 {activeView === 'dashboard' && (
-                    <div className="w-full max-w-[1400px] mx-auto p-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10 h-full flex flex-col">
-                        <header className="mb-8">
-                            <h1 className="text-5xl font-bold text-white mb-2 tracking-tight">{t('dashboard.title')}</h1>
-                            <p className="text-lg text-gray-400">{t('dashboard.subtitle')}</p>
+                    <div className="w-full max-w-[1400px] mx-auto p-16 animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10 h-full flex flex-col">
+                        <header className="mb-12 border-b border-white/[0.05] pb-8">
+                            <h1 className="text-4xl font-normal text-white mb-3 tracking-tight">{t('dashboard.title')}</h1>
+                            <p className="text-sm font-medium text-gray-400 uppercase tracking-widest">{t('dashboard.subtitle')}</p>
                         </header>
 
                         <div className="flex-1 relative">
