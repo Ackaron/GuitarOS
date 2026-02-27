@@ -50,10 +50,10 @@ class ReaperService {
             http.get(url, (res) => {
                 let data = '';
                 res.on('data', (chunk) => data += chunk);
-                res.on('end', () => resolve(data));
+                res.on('end', () => resolve({ success: true, data }));
             }).on('error', (err) => {
                 console.error(`Reaper Connection Error (${url}):`, err.message);
-                reject(err);
+                resolve({ success: false, error: err.message, code: 'REAPER_CONNECTION_ERROR' });
             });
         });
     }
@@ -164,7 +164,7 @@ rc_uri=
 
         } catch (err) {
             console.error("Auto-config failed:", err);
-            return { success: false, error: err.message };
+            return { success: false, error: err.message, code: 'AUTO_CONFIG_FAILED' };
         }
     }
 
@@ -222,7 +222,7 @@ rc_uri=
 
         } catch (err) {
             console.error("Failed to load exercise in Reaper:", err);
-            return { success: false, error: err.message };
+            return { success: false, error: err.message, code: 'LOAD_EXERCISE_FAILED' };
         }
     }
 

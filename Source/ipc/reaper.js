@@ -37,10 +37,13 @@ function registerReaperHandlers() {
 
             await _maybeOpenGP(exerciseToLoad);
 
+            if (result && !result.success) {
+                throw new Error(result.error);
+            }
             return result;
         } catch (err) {
             console.error('[IPC] reaper:start-session failed:', err);
-            return { success: false, error: err.message };
+            return { success: false, error: err.message, code: 'START_SESSION_FAILED' };
         }
     });
 
@@ -60,10 +63,13 @@ function registerReaperHandlers() {
 
             await _maybeOpenGP(exerciseToLoad);
 
+            if (result && !result.success) {
+                throw new Error(result.error);
+            }
             return result;
         } catch (err) {
             console.error('[IPC] reaper:load-exercise failed:', err);
-            return { success: false, error: err.message };
+            return { success: false, error: err.message, code: 'LOAD_EXERCISE_FAILED' };
         }
     });
 
@@ -76,7 +82,7 @@ function registerReaperHandlers() {
             await ReaperService.endSession();
             return { success: true };
         } catch (err) {
-            return { success: false, error: err.message };
+            return { success: false, error: err.message, code: 'END_SESSION_FAILED' };
         }
     });
 
@@ -96,9 +102,9 @@ function registerReaperHandlers() {
     ipcMain.handle('reaper:command', async (_event, commandId) => {
         try {
             const res = await ReaperService.sendCommand(commandId);
-            return { success: true, data: res };
+            return res; // res is already {success, data} or {success, error, code}
         } catch (e) {
-            return { success: false, error: e.message };
+            return { success: false, error: e.message, code: 'COMMAND_FAILED' };
         }
     });
 
