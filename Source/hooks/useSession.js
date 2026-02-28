@@ -61,7 +61,7 @@ export const useSession = (initialTotalMinutes = 60) => {
         }
     }, [routine, currentStepIndex]);
 
-    const generateRoutine = useCallback(async (modules, setStepTimer, setIsTimerRunning, setActiveView) => {
+    const generateRoutine = useCallback(async (modules, setStepTimer, setIsTimerRunning, setActiveView, dayFocus = 'speed') => {
         if (window.electronAPI) {
             // Save current module config
             await window.electronAPI.invoke('prefs:save', { routine: { modules } });
@@ -80,7 +80,8 @@ export const useSession = (initialTotalMinutes = 60) => {
                     currentRoutine: generated,
                     currentIndex: 0,
                     elapsedTime: 0,
-                    startDate: new Date().toISOString()
+                    startDate: new Date().toISOString(),
+                    dayFocus
                 });
 
                 // Start REAPER session

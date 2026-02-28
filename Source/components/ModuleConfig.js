@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, GripVertical, Settings, X, Music, BookOpen, Dumbbell, Zap, FileAudio } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Settings, X, Music, BookOpen, Dumbbell, Zap, FileAudio, Target, Activity, Shield } from 'lucide-react';
 import { Button } from './UI';
 import SearchableSelect from './SearchableSelect';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function ModuleConfig({ modules, setModules, catalog, onGenerate }) {
+export default function ModuleConfig({ modules, setModules, catalog, onGenerate, dayFocus, setDayFocus }) {
     const { t, language } = useLanguage();
 
     // Get unique folders
@@ -333,12 +333,37 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate 
                     </div>
                 </div>
 
-                <Button
-                    onClick={isValid ? onGenerate : null}
-                    className={`py-3 px-10 text-sm tracking-widest uppercase flex items-center gap-2 transition-all ${isValid ? 'bg-[#E63946] hover:brightness-110 text-white' : 'bg-transparent border border-white/5 text-gray-600 cursor-not-allowed'}`}
-                >
-                    {t('dashboard.save_generate')}
-                </Button>
+                <div className="flex items-center gap-6">
+                    {/* Day Focus Selector */}
+                    <div className="flex items-center bg-white/[0.03] p-1 rounded-xl border border-white/[0.05]">
+                        <button
+                            onClick={() => setDayFocus('speed')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'speed' ? 'bg-[#E63946] text-white shadow-lg shadow-red-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                        >
+                            <Activity size={14} /> Скорость
+                        </button>
+                        <button
+                            onClick={() => setDayFocus('clarity')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'clarity' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                        >
+                            <Target size={14} /> Чистота
+                        </button>
+                        <button
+                            onClick={() => setDayFocus('stability')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'stability' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                        >
+                            <Shield size={14} /> Стабильность
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={isValid ? onGenerate : null}
+                        disabled={!isValid}
+                        className={`px-8 py-3 rounded-full font-medium text-sm tracking-widest uppercase flex items-center justify-center gap-2 transition-all duration-300 ${isValid ? 'bg-[#E63946] text-white shadow-lg shadow-red-500/20 hover:brightness-110 cursor-pointer' : 'bg-transparent border border-white/10 text-gray-600 cursor-not-allowed'}`}
+                    >
+                        {t('dashboard.save_generate')}
+                    </button>
+                </div>
             </div>
         </div>
     );

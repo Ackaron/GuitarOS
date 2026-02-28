@@ -1,8 +1,7 @@
 import React from 'react';
-import { Button } from './UI';
-import { ThumbsUp, ThumbsDown, Minus, Star } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Minus, Star, Zap } from 'lucide-react';
 
-const FeedbackModal = ({ isOpen, exerciseTitle, onRate, isTargetReached }) => {
+const FeedbackModal = ({ isOpen, exerciseTitle, onRate, isTargetReached, projectedScores }) => {
     if (!isOpen) return null;
 
     // Musicality Mode (Target Reached)
@@ -27,6 +26,11 @@ const FeedbackModal = ({ isOpen, exerciseTitle, onRate, isTargetReached }) => {
                                     <Star size={32} fill={star <= 0 ? "transparent" : "currentColor"} className="transition-all" />
                                 </div>
                                 <span className="text-xs font-bold text-gray-500 group-hover:text-yellow-500 uppercase">{star === 1 ? 'Shaky' : star === 5 ? 'Solid' : star}</span>
+                                {projectedScores?.musicality?.[star] !== undefined && (
+                                    <div className="flex items-center gap-1 text-[10px] font-mono text-yellow-500/80 bg-yellow-500/10 px-2 rounded-full mt-1">
+                                        <Zap size={10} /> {projectedScores.musicality[star]}
+                                    </div>
+                                )}
                             </button>
                         ))}
                     </div>
@@ -45,32 +49,47 @@ const FeedbackModal = ({ isOpen, exerciseTitle, onRate, isTargetReached }) => {
                 <div className="grid grid-cols-3 gap-4">
                     <button
                         onClick={() => onRate('hard')}
-                        className="group flex flex-col items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-red-500/20 border border-white/5 hover:border-red-500/50 transition-all"
+                        className="group flex flex-col items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-red-500/20 border border-white/5 hover:border-red-500/50 transition-all relative"
                     >
                         <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
                             <ThumbsDown size={32} />
                         </div>
                         <span className="font-bold text-gray-300 group-hover:text-red-400">Hard</span>
+                        {projectedScores?.speed?.hard !== undefined && (
+                            <div className="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-mono text-white/50 bg-black/50 px-2 rounded-full hidden group-hover:flex">
+                                <Zap size={10} className="text-red-400" /> {projectedScores.speed.hard}
+                            </div>
+                        )}
                     </button>
 
                     <button
                         onClick={() => onRate('good')}
-                        className="group flex flex-col items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/50 transition-all"
+                        className="group flex flex-col items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/50 transition-all relative"
                     >
                         <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
                             <Minus size={32} />
                         </div>
                         <span className="font-bold text-gray-300 group-hover:text-blue-400">Good</span>
+                        {projectedScores?.speed?.good !== undefined && (
+                            <div className="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-mono text-white/50 bg-black/50 px-2 rounded-full hidden group-hover:flex">
+                                <Zap size={10} className="text-blue-400" /> {projectedScores.speed.good}
+                            </div>
+                        )}
                     </button>
 
                     <button
                         onClick={() => onRate('easy')}
-                        className="group flex flex-col items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-green-500/20 border border-white/5 hover:border-green-500/50 transition-all"
+                        className="group flex flex-col items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-green-500/20 border border-white/5 hover:border-green-500/50 transition-all relative"
                     >
                         <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform">
                             <ThumbsUp size={32} />
                         </div>
                         <span className="font-bold text-gray-300 group-hover:text-green-400">Easy</span>
+                        {projectedScores?.speed?.easy !== undefined && (
+                            <div className="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-mono text-white/50 bg-black/50 px-2 rounded-full hidden group-hover:flex">
+                                <Zap size={10} className="text-green-400" /> {projectedScores.speed.easy}
+                            </div>
+                        )}
                     </button>
                 </div>
             </div>

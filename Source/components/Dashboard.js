@@ -60,6 +60,8 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
         { id: 'exercise', type: 'exercise', target: '', percentage: 25 },
         { id: 'repertoire', type: 'repertoire', target: '', percentage: 35 }
     ]);
+    const [dayFocus, setDayFocus] = useState('speed'); // speed, clarity, stability
+
 
     const { stepTimer, setStepTimer, isTimerRunning, setIsTimerRunning, toggleTimer } = useSessionTimer(0);
     const [catalog, setCatalog] = useState({ items: [], tags: [], keys: [] });
@@ -119,7 +121,7 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
 
     // --- Actions ---
     const onGenerateRoutine = async () => {
-        await generateRoutine(modules, setStepTimer, setIsTimerRunning, setActiveView);
+        await generateRoutine(modules, setStepTimer, setIsTimerRunning, setActiveView, dayFocus);
     };
 
     const handleNext = () => {
@@ -165,6 +167,8 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
                                 setModules={setModules}
                                 catalog={catalog}
                                 onGenerate={onGenerateRoutine}
+                                dayFocus={dayFocus}
+                                setDayFocus={setDayFocus}
                             />
                         </div>
                     </div>

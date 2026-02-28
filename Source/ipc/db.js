@@ -71,7 +71,7 @@ function registerDbHandlers() {
      */
     ipcMain.handle('library:update-progress', async (
         _event,
-        { id, rating, explicitBpm, confidence, bpm: baselineBpm, duration, actualDuration, plannedDuration }
+        { id, rating, explicitBpm, confidence, bpm: baselineBpm, duration, actualDuration, plannedDuration, score }
     ) => {
         const db = getUserDB();
         await db.read();
@@ -108,7 +108,8 @@ function registerDbHandlers() {
             rating,
             oldBpm,
             actualDuration: actualDuration || duration || 0,
-            plannedDuration: plannedDuration || 0
+            plannedDuration: plannedDuration || 0,
+            score: score || null
         };
 
         // Attach active session ID if present
