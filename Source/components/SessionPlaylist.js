@@ -19,7 +19,7 @@ const SessionPlaylist = ({
                 </h3>
 
                 {/* Total Time Input */}
-                <div className="flex items-center gap-4 bg-[#0F111A] p-3 rounded-xl border border-white/5">
+                <div className="flex items-center gap-4 bg-white/[0.02] p-3 rounded-xl border-none">
                     <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">Total Time</div>
                     <div className="flex-1 flex items-center gap-2">
                         <input
@@ -42,14 +42,14 @@ const SessionPlaylist = ({
                         <div
                             key={idx + item.id}
                             onClick={() => onLoadStep(idx)}
-                            className={`relative p-4 rounded-none border-b transition-all cursor-pointer flex items-center justify-between group overflow-hidden ${isActive
-                                ? 'bg-white/[0.02] border-white/[0.05]'
-                                : isPast ? 'bg-transparent border-white/[0.02] opacity-40 grayscale' : 'bg-transparent border-white/[0.05] hover:bg-white/[0.02]'
+                            className={`relative p-4 rounded-xl transition-all cursor-pointer flex items-center justify-between group overflow-hidden ${isActive
+                                ? 'bg-white/[0.04]'
+                                : isPast ? 'bg-transparent opacity-40 grayscale' : 'bg-transparent hover:bg-white/[0.02]'
                                 } `}
                         >
-                            {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#E63946]"></div>}
+                            {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#E63946] rounded-l-xl"></div>}
                             <div className="flex items-center gap-4">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shadow-inner ${isActive ? 'bg-red-500/20 text-red-500' : 'bg-[#0F111A] text-gray-600'} `}>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${isActive ? 'bg-red-500/20 text-red-500' : 'bg-white/[0.02] text-gray-600'} `}>
                                     {idx + 1}
                                 </div>
                                 <div>
@@ -72,7 +72,7 @@ const SessionPlaylist = ({
                 })}
             </div>
 
-            <div className="mt-8 pt-6 border-t border-white/5">
+            <div className="mt-8 pt-6 border-t border-white/[0.02]">
                 <Button onClick={onFinishWithFeedback} variant="outline" className="w-full border-red-900/30 text-red-800 hover:bg-red-900/20 hover:text-red-500 hover:border-red-500/50 py-4">
                     End Session
                 </Button>

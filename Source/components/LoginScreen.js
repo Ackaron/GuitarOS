@@ -35,12 +35,12 @@ export default function LoginScreen({ onLogin }) {
 
             {/* Login Card */}
             <div className="relative z-10 w-full max-w-md mx-4">
-                <div className="bg-[#13151F]/90 backdrop-blur-xl border border-white/10 rounded-3xl p-10 shadow-2xl shadow-black/50">
+                <div className="bg-white/[0.02] backdrop-blur-3xl rounded-3xl p-10">
 
                     {/* Logo */}
                     <div className="flex flex-col items-center mb-10">
-                        <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/20 mb-5 ring-1 ring-white/10">
-                            <img src="/logo.png" alt="GuitarOS" className="w-full h-full object-contain" />
+                        <div className="w-20 h-20 rounded-2xl overflow-hidden mb-5">
+                            <img src="/logo.png" alt="GuitarOS" className="w-full h-full object-contain filter grayscale brightness-200" />
                         </div>
                         <h1 className="text-3xl font-bold text-white tracking-wider mb-1">GuitarOS</h1>
                         <p className="text-sm text-gray-500 font-medium">{t('login.subtitle') || 'Practice Environment'}</p>
@@ -58,7 +58,7 @@ export default function LoginScreen({ onLogin }) {
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder={t('login.name_placeholder') || 'Enter your name...'}
                                 autoFocus
-                                className="w-full px-5 py-4 bg-black/30 border border-white/10 rounded-xl text-white text-lg placeholder:text-gray-600 focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 transition-all duration-300"
+                                className="w-full px-5 py-4 bg-white/[0.04] rounded-xl text-white text-lg placeholder:text-gray-600 focus:outline-none focus:bg-white/[0.08] transition-all duration-300"
                                 maxLength={30}
                             />
                         </div>
@@ -66,7 +66,7 @@ export default function LoginScreen({ onLogin }) {
                         <button
                             type="submit"
                             disabled={!name.trim() || isSubmitting}
-                            className="w-full py-4 px-6 bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-lg rounded-xl shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-500 hover:to-red-400 disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-300 active:scale-[0.98]"
+                            className="w-full py-4 px-6 bg-red-600 text-white font-bold text-lg rounded-xl hover:bg-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 active:scale-[0.98]"
                         >
                             {isSubmitting ? (
                                 <span className="flex items-center justify-center gap-2">

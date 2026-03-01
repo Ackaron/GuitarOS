@@ -5,11 +5,14 @@ export function Button({ children, onClick, variant = 'primary', className = '' 
     const variants = {
         primary: "bg-[#E63946] text-white hover:brightness-110", // Sharp crisp red, no shadows
         secondary: "bg-transparent text-gray-400 hover:text-white", // Ghost button
-        outline: "border-b border-white/20 text-gray-300 hover:text-white hover:border-white rounded-none px-2 py-1" // Minimal underline action
+        outline: "border border-white/20 text-gray-300 hover:text-white hover:border-white", // Minimal outline
+        ghost: "bg-transparent border-transparent" // Clean base for custom icons
     };
 
+    const finalVariantStyle = variants[variant] || variants.secondary;
+
     return (
-        <button onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`}>
+        <button onClick={onClick} className={`${baseStyle} ${finalVariantStyle} ${className}`}>
             {children}
         </button>
     );

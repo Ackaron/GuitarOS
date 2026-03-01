@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Activity, Settings, ChevronLeft, Edit2, Star } from 'lucide-react';
+import { Play, Activity, ChevronLeft, Edit2, Star } from 'lucide-react';
 import ReaperControls from './ReaperControls';
 import { formatTime } from '../utils/formatTime';
 
@@ -94,7 +94,7 @@ const SessionFocusTimer = ({
                             onKeyDown={(e) => {
                                 if (e.key === 'Escape') setIsEditingTarget(false);
                             }}
-                            className="w-16 bg-white/10 border border-white/20 rounded px-2 py-0.5 text-white text-sm outline-none focus:border-green-500"
+                            className="w-16 bg-white/[0.05] border-transparent rounded px-2 py-0.5 text-white text-sm outline-none focus:bg-white/10 transition-colors"
                         />
                         <span className="text-xs">BPM</span>
                         <button
@@ -122,7 +122,7 @@ const SessionFocusTimer = ({
                 )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-6 text-gray-400 mb-8 border-t border-b border-white/5 py-3">
+            <div className="flex flex-wrap items-center gap-6 text-gray-400 mb-8 py-3 bg-white/[0.02] px-6 rounded-2xl">
                 {/* BPM Control */}
                 <div className="flex items-center gap-3">
                     {/* Edit Mode for Current BPM */}
@@ -222,9 +222,6 @@ const SessionFocusTimer = ({
                             : 'bg-[#E63946] text-white hover:brightness-110'}`}
                     >
                         {isTimerRunning ? <span className="flex items-center gap-2">PAUSE</span> : <span className="flex items-center gap-2"><Play size={24} fill="currentColor" /> START SESSION</span>}
-                    </button>
-                    <button onClick={() => onSetStepTimer(currentItem.duration)} className="h-16 w-16 rounded-full bg-transparent text-gray-500 hover:text-white transition-all flex items-center justify-center hover:bg-white/5">
-                        <Settings size={24} />
                     </button>
                 </div>
             </div>

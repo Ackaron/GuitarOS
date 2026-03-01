@@ -12,7 +12,9 @@ export default function ModuleConfig({
     dayFocus,
     setDayFocus,
     smartReview,
-    setSmartReview
+    setSmartReview,
+    totalMinutes,
+    setTotalMinutes
 }) {
     const { t, language } = useLanguage();
 
@@ -375,8 +377,25 @@ export default function ModuleConfig({
 
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
-                        {/* Day Focus Selector */}
+                        {/* Time Input and Day Focus Selector */}
                         <div className="flex items-center bg-white/[0.03] p-1 rounded-xl border border-white/[0.05]">
+                            <div className="flex items-center gap-2 px-3 py-1.5 min-w-[100px] border-r border-white/5 mr-1">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-none mt-0.5">MINS:</span>
+                                <input
+                                    type="number"
+                                    min="5"
+                                    max="300"
+                                    value={totalMinutes}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setTotalMinutes(val === '' ? '' : parseInt(val) || 0);
+                                    }}
+                                    onBlur={(e) => {
+                                        if (!e.target.value || e.target.value < 5) setTotalMinutes(5);
+                                    }}
+                                    className="w-12 bg-transparent text-white font-mono font-bold text-sm outline-none text-right"
+                                />
+                            </div>
                             <button
                                 onClick={() => setDayFocus('speed')}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'speed' ? 'bg-[#E63946] text-white shadow-lg shadow-red-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}

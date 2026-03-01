@@ -15,7 +15,10 @@ export const useSession = (initialTotalMinutes = 60) => {
                     if (confirm("Resume previous session?")) {
                         setRoutine(prefsData.session.currentRoutine);
                         setCurrentStepIndex(prefsData.session.currentIndex);
-                        setTotalMinutes(Math.floor(prefsData.session.elapsedTime / 60));
+
+                        const totalPlannedSec = prefsData.session.currentRoutine.reduce((sum, r) => sum + r.duration, 0);
+                        setTotalMinutes(Math.max(1, Math.floor(totalPlannedSec / 60)));
+
                         setViewMode('session');
                     } else {
                         await window.electronAPI.invoke('prefs:update-session', { isActive: false });
@@ -47,16 +50,29 @@ export const useSession = (initialTotalMinutes = 60) => {
         const newTotal = Number(val);
         setTotalMinutes(newTotal);
         if (newTotal > 0 && routine.length > 0) {
-            const currentTotalSec = routine.reduce((sum, r) => sum + r.duration, 0);
-            if (currentTotalSec > 0) {
-                const newRoutine = routine.map(item => ({
-                    ...item,
-                    duration: Math.floor(item.duration / currentTotalSec * (newTotal * 60))
-                }));
+            const reviewTotalSec = routine.filter(r => r.isReview).reduce((sum, r) => sum + r.duration, 0);
+            const standardTotalSec = routine.filter(r => !r.isReview).reduce((sum, r) => sum + (r.originalDuration || r.duration || 1), 0);
+
+            const availableStandardSec = Math.max(0, (newTotal * 60) - reviewTotalSec);
+
+            if (standardTotalSec > 0) {
+                const newRoutine = routine.map(item => {
+                    if (item.isReview) {
+                        return { ...item };
+                    } else {
+                        const baseDuration = item.originalDuration || item.duration || 1;
+                        return {
+                            ...item,
+                            duration: Math.floor((baseDuration / standardTotalSec) * availableStandardSec)
+                        };
+                    }
+                });
                 setRoutine(newRoutine);
                 if (!isTimerRunning && setStepTimer) {
                     setStepTimer(newRoutine[currentStepIndex].duration);
                 }
+            } else {
+                setRoutine([...routine]);
             }
         }
     }, [routine, currentStepIndex]);

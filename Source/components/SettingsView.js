@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { Globe, Monitor, Moon, Save, Zap, Music, ChevronDown } from 'lucide-react';
+import { Globe, Monitor, Moon, Save, Zap, Music, ChevronDown, Settings } from 'lucide-react';
 import { Button } from './UI';
 
 export default function SettingsView() {
@@ -93,9 +93,9 @@ export default function SettingsView() {
 
             <div className="grid gap-6">
                 {/* General Settings */}
-                <section className="bg-[#1A1D2D] border border-white/5 rounded-2xl p-6 shadow-xl">
+                <section className="bg-white/[0.02] rounded-2xl p-6">
                     <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                        <SettingsIcon size={24} className="text-gray-400" />
+                        <Settings size={24} className="text-gray-400" />
                         {t('settings.general')}
                     </h2>
 
@@ -160,7 +160,7 @@ export default function SettingsView() {
                                 { /* Reaper Configuration - Collapsible */}
                                 {expandedSettings.reaper && (
                                     <div className="p-4 pt-0 pl-20 animate-in slide-in-from-top-2 duration-200">
-                                        <div className="p-4 bg-black/20 rounded-lg border border-white/5 space-y-3">
+                                        <div className="p-4 bg-white/[0.01] rounded-lg space-y-3">
                                             <div>
                                                 <label className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1 block">Executable Path (Optional)</label>
                                                 <div className="flex gap-2">
@@ -169,7 +169,7 @@ export default function SettingsView() {
                                                         value={prefs.general.reaperPath || ''}
                                                         readOnly
                                                         placeholder="Default: Portable Version"
-                                                        className="flex-1 bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-gray-300 font-mono"
+                                                        className="flex-1 bg-white/[0.02] rounded px-3 py-2 text-sm text-gray-300 font-mono"
                                                     />
                                                     <Button
                                                         onClick={() => handleBrowse('reaperPath')}
@@ -228,7 +228,7 @@ export default function SettingsView() {
                                 { /* GP Configuration - Collapsible */}
                                 {expandedSettings.gp && (
                                     <div className="p-4 pt-0 pl-20 animate-in slide-in-from-top-2 duration-200">
-                                        <div className="p-4 bg-black/20 rounded-lg border border-white/5 space-y-3">
+                                        <div className="p-4 bg-white/[0.01] rounded-lg space-y-3">
                                             <div>
                                                 <label className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1 block">Executable Path (Optional)</label>
                                                 <div className="flex gap-2">
@@ -237,7 +237,7 @@ export default function SettingsView() {
                                                         value={prefs.general.gpPath || ''}
                                                         readOnly
                                                         placeholder="Default: Portable Version"
-                                                        className="flex-1 bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-gray-300 font-mono"
+                                                        className="flex-1 bg-white/[0.02] rounded px-3 py-2 text-sm text-gray-300 font-mono"
                                                     />
                                                     <Button
                                                         onClick={() => handleBrowse('gpPath')}

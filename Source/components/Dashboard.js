@@ -172,6 +172,8 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
                                 setDayFocus={setDayFocus}
                                 smartReview={smartReview}
                                 setSmartReview={setSmartReview}
+                                totalMinutes={totalMinutes}
+                                setTotalMinutes={setTotalMinutes}
                             />
                         </div>
                     </div>

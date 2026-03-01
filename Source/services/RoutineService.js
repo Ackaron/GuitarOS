@@ -56,7 +56,7 @@ class RoutineService {
             plannedItemIds.add(selectedItem.id);
             const fullItem = await this._enrichItemConfig(selectedItem);
 
-            routine.push({ ...fullItem, duration, slotType: vm.slotType, moduleId: vm.config.id });
+            routine.push({ ...fullItem, duration, originalDuration: duration, slotType: vm.slotType, moduleId: vm.config.id });
         }
 
         // 3. Select Smart Review Items (filtering out already planned items)
@@ -76,6 +76,7 @@ class RoutineService {
                         ...fullItem,
                         isReview: true,
                         duration: 300, // 5 mins
+                        originalDuration: 300,
                         slotType: 'Smart Review',
                         moduleId: 'smart_review'
                     });

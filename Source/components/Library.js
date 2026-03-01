@@ -200,9 +200,9 @@ export default function Library({ onBack }) {
             <div className="flex justify-between items-center mb-10">
                 <div className="flex items-center gap-4">
                     {!isRoot && (
-                        <Button variant="ghost" onClick={handleBack} className="text-gray-400 hover:text-white">
+                        <button onClick={handleBack} className="flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-all">
                             <ArrowLeft size={20} /> Back
-                        </Button>
+                        </button>
                     )}
                     <div className="relative w-96">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
@@ -232,7 +232,7 @@ export default function Library({ onBack }) {
                     {isRoot && visibleLibraryData.map(folder => (
                         <div key={folder.id}
                             onClick={() => openFolder(folder.id)}
-                            className="relative aspect-[4/3] border-b border-white/[0.05] bg-transparent flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.02] transition-all group"
+                            className="relative aspect-[4/3] bg-white/[0.02] rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.04] transition-all group"
                         >
                             <div
                                 onClick={(e) => {
@@ -265,10 +265,10 @@ export default function Library({ onBack }) {
                     {/* New Folder Button */}
                     <div
                         onClick={() => setModal({ type: 'create' })}
-                        className="aspect-[4/3] border-b border-white/[0.05] border-dashed bg-transparent flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.02] transition-all group"
+                        className="aspect-[4/3] bg-white/[0.01] rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.03] transition-all group"
                     >
-                        <div className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center mb-3 group-hover:bg-gray-600 transition-colors">
-                            <Plus size={32} className="text-white" />
+                        <div className="w-14 h-14 rounded-full bg-white/[0.05] flex items-center justify-center mb-3 group-hover:bg-white/10 transition-colors">
+                            <Plus size={32} className="text-white opacity-50 group-hover:opacity-100" />
                         </div>
                         <span className="text-gray-400 text-sm">{t('library.create_folder').toUpperCase()}</span>
                     </div>
@@ -278,7 +278,7 @@ export default function Library({ onBack }) {
                         item.type === 'folder' ? (
                             <div key={item.id}
                                 onClick={() => openFolder(currentPath + '/' + item.name)}
-                                className="relative aspect-[4/3] border-b border-white/[0.05] bg-transparent flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.02] transition-all group"
+                                className="relative aspect-[4/3] bg-white/[0.02] rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.04] transition-all group"
                             >
                                 <div
                                     onClick={(e) => {
@@ -296,7 +296,7 @@ export default function Library({ onBack }) {
                         ) : (
                             <div key={item.id}
                                 onClick={() => handleFileClick(item)}
-                                className="relative min-w-[200px] h-[100px] border-b border-white/[0.05] bg-transparent p-4 flex flex-col justify-between hover:bg-white/[0.02] cursor-pointer transition-all group overflow-hidden"
+                                className="relative min-w-[200px] h-[100px] rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] p-4 flex flex-col justify-between cursor-pointer transition-all group overflow-hidden"
                                 title={item.fsName}
                             >
                                 <div

@@ -32,7 +32,7 @@ const Sidebar = ({ activeView, onNavigate, isOpen, onToggle, onLogout }) => {
                     e.preventDefault();
                     onNavigate(id);
                 }}
-                className={`flex items-center gap-4 py-3 rounded-none cursor-pointer transition-all mb-1 overflow-hidden whitespace-nowrap ${active ? 'border-l-2 border-[#E63946] text-white bg-white/[0.02] pl-6' : 'border-l-2 border-transparent text-gray-500 hover:text-white pl-6'} ${collapsed ? 'justify-center px-0 pl-0 border-l-0' : ''}`}
+                className={`flex items-center gap-4 py-3 rounded-none cursor-pointer transition-all mb-1 overflow-hidden whitespace-nowrap ${active ? 'text-white bg-white/[0.04] pl-6 border-l-2 border-[#E63946]' : 'text-gray-500 hover:text-white hover:bg-white/[0.02] pl-6 border-l-2 border-transparent'} ${collapsed ? 'justify-center px-0 pl-0 border-l-0' : ''}`}
                 title={collapsed ? label : ''}
                 style={{ WebkitAppRegion: 'no-drag' }}
             >
@@ -79,20 +79,20 @@ const Sidebar = ({ activeView, onNavigate, isOpen, onToggle, onLogout }) => {
             </nav>
 
             {/* User Profile Footer */}
-            <div className={`p-6 border-t-0 bg-transparent flex-shrink-0 mb-4 transition-all ${activeView === 'progress' ? 'bg-white/[0.02]' : ''}`}>
+            <div className={`p-6 border-t-0 bg-transparent flex-shrink-0 mb-4 transition-all ${activeView === 'progress' ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}>
                 <div
                     onClick={() => onNavigate('progress')}
                     className={`flex items-center gap-4 cursor-pointer group ${!isOpen ? 'justify-center' : ''}`}
                     title={!isOpen ? t('sidebar.progress') : ''}
                 >
                     {/* Initials Avatar */}
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${activeView === 'progress' ? 'bg-[#E63946] text-white shadow-[0_0_10px_rgba(230,57,70,0.4)]' : 'bg-white/5 text-gray-400 group-hover:bg-white/10 group-hover:text-white'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${activeView === 'progress' ? 'bg-[#E63946] text-white' : 'bg-white/[0.05] text-gray-400 group-hover:bg-white/10 group-hover:text-white'}`}>
                         <span className="text-xs font-bold">{getInitials(userName)}</span>
                     </div>
                     {isOpen && (
                         <div className="flex-1 min-w-0">
                             <div className={`text-sm font-bold truncate transition-colors ${activeView === 'progress' ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>{userName}</div>
-                            <div className="text-[10px] text-gray-600 font-mono uppercase tracking-widest flex items-center gap-1 mt-0.5"><Activity size={10} /> {t('sidebar.progress')}</div>
+                            <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest flex items-center gap-1 mt-0.5"><Activity size={10} /> {t('sidebar.progress')}</div>
                         </div>
                     )}
                     {isOpen && onLogout && (
