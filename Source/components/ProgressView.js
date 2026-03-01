@@ -4,7 +4,7 @@ import {
     BarChart, Bar, CartesianGrid, AreaChart, Area
 } from 'recharts';
 import {
-    Activity, Trophy, Flame, ChevronLeft, Calendar,
+    Activity, Target, Flame, ChevronLeft, Calendar,
     Music, Zap, BookOpen, Layers, Star
 } from 'lucide-react';
 import ActivityHeatmap from './ActivityHeatmap';
@@ -83,15 +83,15 @@ const ProgressView = () => {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <KPICard icon={Activity} label="Total Hours" value={globalStats?.totalHours || 0} sub="Lifetime Practice" color="text-[#2563eb]" bg="bg-[#2563eb]/10" />
-                <KPICard icon={Trophy} label="Level" value={globalStats?.level || 1} sub="Guitarist Rank" color="text-yellow-500" bg="bg-yellow-500/10" />
+                <KPICard icon={Target} label="Avg Quality" value={`${globalStats?.averageScore || 0}%`} sub="Session Score" color="text-yellow-500" bg="bg-yellow-500/10" />
                 <KPICard icon={Flame} label="Streak" value={`${globalStats?.daysActive || 0} Days`} sub="Consistency" color="text-orange-500" bg="bg-orange-500/10" />
                 <KPICard icon={Calendar} label="Sessions" value={globalStats?.totalCheckins || 0} sub="Check-ins" color="text-blue-500" bg="bg-blue-500/10" />
             </div>
 
-            {/* Global Mastery Graph */}
+            {/* Global Quality Graph */}
             <div className="bg-[#1A1D2D] p-6 rounded-2xl border border-white/5">
                 <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                    <Activity size={20} className="text-[#2563eb]" /> Mastery Index (Global)
+                    <Activity size={20} className="text-[#2563eb]" /> Practice Quality Trend
                 </h3>
                 <ActivityHeatmap data={heatmapData} />
             </div>
@@ -133,10 +133,10 @@ const ProgressView = () => {
 
     const renderCategoryView = () => (
         <div className="space-y-6 animate-in slide-in-from-right-10 duration-300">
-            {/* Category Mastery Graph */}
+            {/* Category Quality Graph */}
             <div className="bg-[#1A1D2D] p-6 rounded-2xl border border-white/5 mb-8">
                 <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                    <Activity size={20} className="text-[#2563eb]" /> {selectedCategory} Mastery
+                    <Activity size={20} className="text-[#2563eb]" /> {selectedCategory} Quality
                 </h3>
                 <ActivityHeatmap data={categoryMastery} />
             </div>
@@ -177,7 +177,7 @@ const ProgressView = () => {
                         </div>
                     </div>
                     <div className="text-right">
-                        <div className="text-sm text-gray-500 uppercase tracking-widest mb-1">Last Mastery</div>
+                        <div className="text-sm text-gray-500 uppercase tracking-widest mb-1">Last Quality Score</div>
                         {itemMastery.length > 0 ? (
                             <div className="text-3xl font-mono font-bold text-[#2563eb]">
                                 {itemMastery[itemMastery.length - 1].mastery}%
@@ -193,31 +193,18 @@ const ProgressView = () => {
                     <ActivityHeatmap data={itemMastery} />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mt-8">
-                    {/* Musicality / Confidence stats */}
-                    {(() => {
-                        const lastEntry = itemHistory[itemHistory.length - 1];
-                        const confidence = lastEntry?.confidence || (lastEntry?.rating === 'easy' ? 5 : lastEntry?.rating === 'good' ? 4 : lastEntry?.rating === 'hard' ? 2 : 0);
-
-                        return (
-                            <div className="bg-black/20 p-4 rounded-xl text-center border border-white/5">
-                                <div className="text-gray-500 text-xs uppercase mb-2 tracking-wider">Latest Confidence</div>
-                                <div className="text-white font-bold flex justify-center gap-1">
-                                    {[1, 2, 3, 4, 5].map(s => (
-                                        <Star
-                                            key={s}
-                                            size={20}
-                                            className={`${s <= confidence ? "text-yellow-500 fill-yellow-500" : "text-gray-800"}`}
-                                        />
-                                    ))}
-                                </div>
-                                <div className="mt-2 text-xs text-yellow-500/80 font-mono">
-                                    {confidence > 0 ? `${confidence}/5 Stars` : 'No Rating'}
-                                </div>
+                {/* Objective Stats / Future Telemetry Placeholders */}
+                {(() => {
+                    const lastEntry = itemHistory[itemHistory.length - 1];
+                    return (
+                        <div className="bg-black/20 p-4 rounded-xl text-center border border-white/5">
+                            <div className="text-gray-500 text-xs uppercase mb-2 tracking-wider">Top Speed</div>
+                            <div className="text-white font-bold text-2xl font-mono">
+                                {lastEntry && lastEntry.bpm ? `${lastEntry.bpm} BPM` : '--'}
                             </div>
-                        );
-                    })()}
-                </div>
+                        </div>
+                    );
+                })()}
             </div>
         </div>
     );

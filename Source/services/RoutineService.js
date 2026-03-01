@@ -14,12 +14,37 @@ class RoutineService {
     /**
      * Generate a practice routine.
      */
-    async generateRoutine(totalMinutes = 60, modules = []) {
+    async generateRoutine(totalMinutes = 60, modules = [], smartReview = false) {
         if (!modules || modules.length === 0) return [];
 
         const catalog = await LibraryService.getCatalog();
         const allItems = catalog.items;
         const pick = arr => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : null;
+
+        // --- Smart Review Items Logic ---
+        const reviewItems = [];
+        let allocatedReviewTime = 0;
+        if (smartReview) {
+            const reviewQueue = await LibraryService.getReviewQueue(2, 60);
+            for (const review of reviewQueue) {
+                const catalogItem = allItems.find(i => i.id === review.id);
+                if (catalogItem) {
+                    const fullItem = await this._enrichItemConfig(catalogItem);
+                    reviewItems.push({
+                        ...fullItem,
+                        isReview: true,
+                        duration: 300, // 5 mins
+                        slotType: 'Smart Review',
+                        moduleId: 'smart_review'
+                    });
+                    allocatedReviewTime += 5;
+                }
+                if (reviewItems.length >= 2) break; // cap at 2 items (10 mins)
+            }
+        }
+
+        // Adjust remaining time for regular modules
+        const remainingMinutes = Math.max(10, totalMinutes - allocatedReviewTime);
 
         const validModules = [];
         let totalValidWeight = 0;
@@ -37,14 +62,23 @@ class RoutineService {
         const routine = [];
         for (const vm of validModules) {
             const adjustedRatio = vm.config.percentage / totalValidWeight;
-            const duration = Math.floor(totalMinutes * 60 * adjustedRatio);
+            const duration = Math.floor(remainingMinutes * 60 * adjustedRatio);
 
             if (duration < 60) continue;
 
-            const selectedItem = pick(vm.pool);
+            // Remove items that are already in Smart Review from the pool
+            const pool = vm.pool.filter(item => !reviewItems.some(ri => ri.id === item.id));
+            if (pool.length === 0) continue;
+
+            const selectedItem = pick(pool);
             const fullItem = await this._enrichItemConfig(selectedItem);
 
             routine.push({ ...fullItem, duration, slotType: vm.slotType, moduleId: vm.config.id });
+        }
+
+        // Prepend review items so they appear first
+        if (reviewItems.length > 0) {
+            routine.unshift(...reviewItems);
         }
 
         return await this._mergeProgressionData(routine);

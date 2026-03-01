@@ -20,53 +20,67 @@ export const calculateScore = (params) => {
         actualDuration
     } = params;
 
-    let baseScore = 0;
+    let qualityScore = 0;
 
-    // --- Scenario 1: Feature reached target or it's a non-speed module ---
+    // 1. Calculate Quality Score (0-100)
+    // If we have a 1-5 confidence rating (or it's a non-metronome module)
     if (confidence || moduleType === 'theory' || moduleType === 'repertoire') {
-        // Base score driven heavily by user confidence (1-5)
         const confidenceScoreMap = { 1: 40, 2: 60, 3: 75, 4: 90, 5: 100 };
-        baseScore = confidenceScoreMap[confidence || 3]; // Default to 75 if missing
-    }
-    // --- Scenario 2: Speed building phase (Target not reached yet) ---
-    else {
-        // Calculate progression towards target
+        qualityScore = confidenceScoreMap[confidence || 3];
+    } else {
+        // Metronome / Speed building module
         const safeTarget = targetBpm || actualBpm || 120;
         const progressRatio = Math.min(actualBpm / safeTarget, 1);
 
-        // Base score starts from BPM progress (scaled 30 to 80)
-        baseScore = 30 + (progressRatio * 50);
+        qualityScore = 30 + (progressRatio * 50); // Base: 30 to 80 based on BPM vs Target
 
-        // Adjust based on user perceived difficulty
-        if (userRating === 'easy') baseScore += 10;
-        if (userRating === 'hard') baseScore -= 10;
-        if (userRating === 'good') baseScore += 5;
+        if (userRating === 'easy') qualityScore += 20;
+        else if (userRating === 'good') qualityScore += 10;
+        // if 'hard', we only get the base speed ratio score
     }
 
-    // --- Apply Day Focus Multipliers ---
-    // If the user's intent matches the outcome, we boost the score.
+    qualityScore = Math.max(0, Math.min(100, qualityScore));
+
+    // 2. Calculate Discipline (Time) Score (0-100)
+    const durationRatio = (plannedDuration && plannedDuration > 0)
+        ? Math.min(actualDuration / plannedDuration, 1)
+        : 1;
+    const timeScore = Math.round(durationRatio * 100);
+
+    // 3. Balance Quality vs Time based on Intent 
+    let weightQuality = 0.5;
+    let weightTime = 0.5;
+
     if (dayFocus === 'speed') {
-        // High BPM progress is rewarded more
-        if (!confidence && userRating !== 'hard' && actualBpm > (targetBpm * 0.8)) {
-            baseScore *= 1.1;
-        }
+        weightQuality = 0.7; // Speed prioritizes output (BPM)
+        weightTime = 0.3;
     } else if (dayFocus === 'clarity') {
-        // High confidence/ease is rewarded more, even if BPM is lower
-        if (confidence >= 4 || userRating === 'easy') {
-            baseScore *= 1.15;
-        } else if (userRating === 'hard') {
-            // Penalize pushing too fast when focus is clarity
-            baseScore *= 0.8;
-        }
+        weightQuality = 0.8; // Clarity prioritizes getting perfect stars
+        weightTime = 0.2;
     } else if (dayFocus === 'stability') {
-        // Hitting the exact planned duration without stopping early is rewarded
-        const durationRatio = actualDuration / plannedDuration;
-        if (durationRatio >= 0.9 && (confidence >= 3 || userRating !== 'hard')) {
-            baseScore *= 1.1;
-        }
+        weightQuality = 0.3;
+        weightTime = 0.7;    // Stability strictly prioritizes putting in the TIME (stamina)
     }
 
-    // Cap between 0 and 100
-    const finalScore = Math.max(0, Math.min(100, Math.round(baseScore)));
-    return finalScore;
+    let baseScore = (qualityScore * weightQuality) + (timeScore * weightTime);
+
+    // 4. Intent Synergies
+    if (dayFocus === 'speed' && actualBpm > (targetBpm * 0.9) && userRating !== 'hard') {
+        baseScore *= 1.1; // Bonus for reaching speed target comfortably
+    }
+    if (dayFocus === 'clarity' && (confidence >= 4 || userRating === 'easy')) {
+        baseScore *= 1.1; // Bonus for extreme cleanliness
+    }
+    if (dayFocus === 'stability' && durationRatio >= 0.95 && (confidence >= 3 || userRating !== 'hard')) {
+        baseScore *= 1.15; // Massive stamina bonus for finishing the timer without failing
+    }
+
+    // 5. Anti-Cheat: Harsh penalty for skipping early
+    // If you skip halfway or less, your overall score drops severely
+    if (durationRatio < 0.5) {
+        // e.g., durationRatio = 0.1 (10% played). Multiplier = 0.5 + 0.1 = 0.6x
+        baseScore *= (0.5 + durationRatio);
+    }
+
+    return Math.max(0, Math.min(100, Math.round(baseScore)));
 };

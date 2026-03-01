@@ -61,6 +61,7 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
         { id: 'repertoire', type: 'repertoire', target: '', percentage: 35 }
     ]);
     const [dayFocus, setDayFocus] = useState('speed'); // speed, clarity, stability
+    const [smartReview, setSmartReview] = useState(true); // Toggle for Smart Review Engine
 
 
     const { stepTimer, setStepTimer, isTimerRunning, setIsTimerRunning, toggleTimer } = useSessionTimer(0);
@@ -121,7 +122,7 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
 
     // --- Actions ---
     const onGenerateRoutine = async () => {
-        await generateRoutine(modules, setStepTimer, setIsTimerRunning, setActiveView, dayFocus);
+        await generateRoutine(modules, setStepTimer, setIsTimerRunning, setActiveView, dayFocus, smartReview);
     };
 
     const handleNext = () => {
@@ -169,6 +170,8 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
                                 onGenerate={onGenerateRoutine}
                                 dayFocus={dayFocus}
                                 setDayFocus={setDayFocus}
+                                smartReview={smartReview}
+                                setSmartReview={setSmartReview}
                             />
                         </div>
                     </div>

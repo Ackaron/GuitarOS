@@ -22,9 +22,9 @@ const SessionFocusTimer = ({
     isTargetReached,
     isEditingTarget,
     setIsEditingTarget,
-    newTargetBpm,
     setNewTargetBpm,
-    handleSaveTargetBpm
+    handleSaveTargetBpm,
+    isReview
 }) => {
     const currentItemStepInfo = (idx, total) => {
         return `Step ${idx + 1} of ${total}`;
@@ -46,6 +46,12 @@ const SessionFocusTimer = ({
                 <span className="px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-bold uppercase tracking-widest border border-red-500/20">
                     {currentItem.slotType || 'Focus'}
                 </span>
+
+                {isReview && (
+                    <span className="px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold uppercase tracking-widest border border-purple-500/20 animate-pulse">
+                        Smart Review
+                    </span>
+                )}
 
                 {/* Last Temp Badge */}
                 {(() => {

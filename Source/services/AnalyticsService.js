@@ -14,7 +14,7 @@ class AnalyticsService {
 
     // ─── Level 1 ─────────────────────────────────────────────────────────────
 
-    /** Global KPI snapshot (hours, check-ins, level, active days). */
+    /** Global KPI snapshot (hours, check-ins, avg score, active days). */
     async getGlobalStats() {
         const db = getUserDB();
         await db.read();
@@ -23,16 +23,36 @@ class AnalyticsService {
         const totalCheckins = data.user?.totalCheckins || 0;
         const totalMinutes = totalCheckins * 5; // Estimate: ~5 min per check-in
         const totalHours = Math.floor(totalMinutes / 60);
-        const level = Math.floor(totalCheckins / 25) + 1;
 
-        // Unique activity days from all exercise history
+        // Calculate Average Session Score
+        let totalScoreSum = 0;
+        let scoreCount = 0;
         const allDates = [];
-        (data.exercises || []).forEach(ex =>
-            (ex.history || []).forEach(h => allDates.push(new Date(h.date)))
-        );
+
+        (data.exercises || []).forEach(ex => {
+            (ex.history || []).forEach(h => {
+                allDates.push(new Date(h.date));
+                if (h.score !== undefined && h.score !== null) {
+                    totalScoreSum += h.score;
+                    scoreCount++;
+                } else if (!h.score) {
+                    // Approximate legacy score using confidence
+                    let legacyScore = 50;
+                    if (h.confidence) legacyScore = (h.confidence / 5) * 100;
+                    else if (h.rating === 'easy') legacyScore = 100;
+                    else if (h.rating === 'good') legacyScore = 75;
+                    else if (h.rating === 'hard') legacyScore = 40;
+
+                    totalScoreSum += legacyScore;
+                    scoreCount++;
+                }
+            });
+        });
+
+        const averageScore = scoreCount > 0 ? Math.round(totalScoreSum / scoreCount) : 0;
         const daysActive = new Set(allDates.map(d => d.toDateString())).size;
 
-        return { totalHours, totalCheckins, level, daysActive };
+        return { totalHours, totalCheckins, averageScore, daysActive };
     }
 
     /** Flat chronological list of all history entries across all exercises. */
@@ -203,20 +223,18 @@ class AnalyticsService {
         allSessions.sort((a, b) => a.dateObj - b.dateObj);
 
         return allSessions.map((s, index) => {
-            const avgTempoComp = s.accTempoWeighted / s.count;
-            const avgTimeComp = s.accTimeWeighted / s.count;
-            const avgQualityComp = s.accQualityWeighted / s.count;
+            const avgScore = s.count > 0 ? s.accTotalScore / s.count : 0;
 
             return {
                 index: index + 1,
                 dateObj: s.dateObj,
                 date: s.dateObj.toLocaleDateString(),
                 timeLabel: s.dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                mastery: Math.min(100, Math.round(avgTempoComp + avgTimeComp + avgQualityComp)),
+                mastery: Math.min(100, Math.round(avgScore)),
                 title: itemId
                     ? Array.from(s.titles)[0]
                     : `Session #${index + 1}${s.isExplicit ? '' : ' (Legacy)'}`,
-                bpm: Math.round(s.totalBpmPercent / s.count),
+                bpm: s.count > 0 ? Math.round(s.totalBpmPercent / s.count) : 0,
                 isBpmPercentage: true,
                 time: s.totalTime,
                 quality: s.count > 0 ? `${(s.totalQualityStars / s.count).toFixed(1)}★` : '-'
@@ -254,6 +272,18 @@ class AnalyticsService {
     // ─── Mastery calculation ─────────────────────────────────────────────────
 
     _calculateMasteryDetails(h, targetBpm, targetDuration) {
+        // V3.0 (Smart Practice Engine): Prefer the pre-calculated score from DB
+        if (h.score !== undefined && h.score !== null) {
+            return {
+                totalScore: h.score,
+                tempoWeighted: 0,
+                timeWeighted: 0,
+                qualityWeighted: 0,
+                isMasteryPhase: targetBpm > 0 && (h.bpm || 0) >= targetBpm
+            };
+        }
+
+        // V2.0 Fallback (Legacy data)
         const currentBpm = h.bpm || 0;
         const actual = h.actualDuration || h.duration || 0;
         const planned = h.plannedDuration || targetDuration || 300;
@@ -265,11 +295,9 @@ class AnalyticsService {
         let qualityPoints = 0;
 
         if (!isMasteryPhase) {
-            // Scenario A — Learning: Tempo 50% + Time 50%
             tempoPoints = targetBpm > 0 ? Math.min(50, (currentBpm / targetBpm) * 50) : 50;
             timePoints = actual > 0 && planned > 0 ? Math.min(50, (actual / planned) * 50) : 0;
         } else {
-            // Scenario B — Mastery: Tempo ~33% + Time ~33% + Quality ~33%
             tempoPoints = targetBpm > 0 ? Math.min(34.0, (currentBpm / targetBpm) * 33.3) : 33.3;
             timePoints = actual > 0 && planned > 0 ? Math.min(33.3, (actual / planned) * 33.3) : 0;
 
@@ -297,6 +325,7 @@ class AnalyticsService {
     _newSessionAccumulator(dateObj) {
         return {
             dateObj,
+            accTotalScore: 0,
             accTempoWeighted: 0, accTimeWeighted: 0, accQualityWeighted: 0,
             totalBpmPercent: 0, totalTime: 0, totalQualityStars: 0,
             count: 0, titles: new Set(), isExplicit: true
@@ -305,6 +334,7 @@ class AnalyticsService {
 
     _accumulateSession(s, item) {
         if (item.dateObj < s.dateObj) s.dateObj = item.dateObj;
+        s.accTotalScore += item.details.totalScore;
         s.accTempoWeighted += item.details.tempoWeighted;
         s.accTimeWeighted += item.details.timeWeighted;
         s.accQualityWeighted += item.details.qualityWeighted;

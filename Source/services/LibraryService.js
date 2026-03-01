@@ -309,6 +309,54 @@ class LibraryService {
         } catch (err) { return []; }
     }
 
+    /**
+     * Smart Review Engine
+     * Fetches exercises practiced within `daysToLookBack` that resulted in a score below `scoreThreshold`.
+     */
+    async getReviewQueue(daysToLookBack = 2, scoreThreshold = 60) {
+        try {
+            const { getUserDB } = require('./db');
+            const db = getUserDB();
+            await db.read();
+
+            if (!db.data || !db.data.exercises) return [];
+
+            const now = new Date();
+            const cutoffTime = now.getTime() - (daysToLookBack * 24 * 60 * 60 * 1000);
+
+            const reviewItems = [];
+
+            db.data.exercises.forEach(ex => {
+                if (!ex.history || ex.history.length === 0) return;
+
+                // Sort history newest first
+                const sortedHistory = [...ex.history].sort((a, b) => new Date(b.date) - new Date(a.date));
+                const lastSession = sortedHistory[0];
+                const sessionDate = new Date(lastSession.date).getTime();
+
+                // Check if it happened recently and needs review
+                if (sessionDate >= cutoffTime) {
+                    const score = lastSession.score !== undefined ? lastSession.score : 100; // default to 100 if legacy to avoid false positives
+                    if (score < scoreThreshold) {
+                        reviewItems.push({
+                            id: ex.id,
+                            title: ex.title,
+                            score: score,
+                            date: lastSession.date
+                        });
+                    }
+                }
+            });
+
+            // Sort by score ascending (worst first)
+            return reviewItems.sort((a, b) => a.score - b.score);
+
+        } catch (err) {
+            console.error('Error fetching review queue:', err);
+            return [];
+        }
+    }
+
     async _scanDeep(currentPath, category, folderHierarchy, resultList) {
         const items = await fs.readdir(currentPath, { withFileTypes: true });
         for (const dirent of items) {

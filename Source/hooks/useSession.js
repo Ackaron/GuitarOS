@@ -61,12 +61,12 @@ export const useSession = (initialTotalMinutes = 60) => {
         }
     }, [routine, currentStepIndex]);
 
-    const generateRoutine = useCallback(async (modules, setStepTimer, setIsTimerRunning, setActiveView, dayFocus = 'speed') => {
+    const generateRoutine = useCallback(async (modules, setStepTimer, setIsTimerRunning, setActiveView, dayFocus = 'speed', smartReview = true) => {
         if (window.electronAPI) {
             // Save current module config
             await window.electronAPI.invoke('prefs:save', { routine: { modules } });
 
-            const generated = await window.electronAPI.invoke('routine:generate', { minutes: totalMinutes, modules });
+            let generated = await window.electronAPI.invoke('routine:generate', { minutes: totalMinutes, modules, smartReview });
 
             if (generated && generated.length > 0) {
                 const sessionId = window.crypto.randomUUID();

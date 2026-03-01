@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Activity } from 'lucide-react';
-import FeedbackModal from './FeedbackModal';
 import TabPlayer from './TabPlayer';
 import SessionTopNav from './SessionTopNav';
 import SessionFocusTimer from './SessionFocusTimer';
@@ -23,9 +22,6 @@ const SessionView = ({
     onUpdateTotalTime,
     launchGuitarPro = true
 }) => {
-    const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-    const [pendingAction, setPendingAction] = useState(null);
-
     const [currentBpm, setCurrentBpm] = useState(0);
     const [bpmChanged, setBpmChanged] = useState(false);
     const [isEditingBpm, setIsEditingBpm] = useState(false);
@@ -36,7 +32,6 @@ const SessionView = ({
     const [viewMode, setViewMode] = useState(launchGuitarPro ? 'timer' : 'tab'); // Default to Tab if GP is off
 
     const currentItem = routine[currentStepIndex];
-    const [projectedScores, setProjectedScores] = useState(null);
 
     useEffect(() => {
         if (currentItem) {
@@ -61,72 +56,18 @@ const SessionView = ({
     };
 
     const handleFeedbackTrigger = async (action) => {
-        // Only trigger for items that have tracks/BPM (exercises)
+        // Automatically save progress for valid items (e.g. exercises)
         if (currentItem && currentItem.bpm > 0) {
+            await saveProgress(currentBpm);
+        }
 
-            // PRE-CALCULATE SCORES TO SHOW IN MODAL
-            const planned = currentItem.duration || 300;
-            const remaining = stepTimer;
-            const elapsed = Math.max(0, planned - remaining);
-
-            const prefsData = window.electronAPI ? await window.electronAPI.invoke('prefs:get') : null;
-            const dayFocus = prefsData?.session?.dayFocus || 'speed';
-
-            const baseParams = {
-                moduleType: currentItem.type || currentItem.category?.toLowerCase() || 'exercise',
-                dayFocus,
-                targetBpm: currentItem.targetBPM,
-                actualBpm: currentBpm,
-                plannedDuration: planned,
-                actualDuration: elapsed
-            };
-
-            const computedScores = {
-                speed: {
-                    hard: calculateScore({ ...baseParams, userRating: 'hard', confidence: null }),
-                    good: calculateScore({ ...baseParams, userRating: 'good', confidence: null }),
-                    easy: calculateScore({ ...baseParams, userRating: 'easy', confidence: null }),
-                },
-                musicality: {
-                    1: calculateScore({ ...baseParams, userRating: 'good', confidence: 1 }),
-                    2: calculateScore({ ...baseParams, userRating: 'good', confidence: 2 }),
-                    3: calculateScore({ ...baseParams, userRating: 'good', confidence: 3 }),
-                    4: calculateScore({ ...baseParams, userRating: 'good', confidence: 4 }),
-                    5: calculateScore({ ...baseParams, userRating: 'good', confidence: 5 }),
-                }
-            };
-
-            setProjectedScores(computedScores);
-
-            // PRIORITY 1: Check if Target Reached (ALWAYS show rating if reached)
-            // Use targetBPM if available, else originalBpm/bpm
-            const target = currentItem.targetBPM || currentItem.originalBpm || currentItem.bpm || 120;
-            const isTargetReached = currentBpm >= target;
-
-            if (isTargetReached) {
-                if (isTimerRunning) onToggleTimer(); // Pause
-                setPendingAction(() => action);
-                setIsFeedbackOpen(true);
-                return;
-            }
-
-            // PRIORITY 2: BPM Changed but Target NOT reached -> Auto-save and skip
-            if (bpmChanged) {
-                // Save new BPM as 'manual' entry (Knowledge Base update)
-                await saveManualBpm(currentBpm);
-                action(); // Proceed immediately
-                return;
-            }
-
-            // Default: Target not reached, BPM not changed -> Proceed (or logic for pure practice loop?)
-            // Just proceed for now
-            action();
-        } else {
+        // Proceed immediately without showing a modal
+        if (action) {
             action();
         }
     };
 
-    const saveManualBpm = async (bpm) => {
+    const saveProgress = async (bpm) => {
         if (window.electronAPI) {
             const planned = currentItem.duration || 300;
             const remaining = stepTimer;
@@ -141,7 +82,7 @@ const SessionView = ({
                 dayFocus,
                 targetBpm: currentItem.targetBPM,
                 actualBpm: currentBpm,
-                userRating: 'good', // assume 'good' for auto-saves
+                userRating: 'good', // assume 'good' for auto-saves since it focuses on objective time discipline
                 confidence: null,
                 plannedDuration: planned,
                 actualDuration: elapsed
@@ -159,51 +100,6 @@ const SessionView = ({
 
             // Immediate UI update
             currentItem.lastSuccessBPM = bpm;
-        }
-    };
-
-    const handleRate = async (rating, confidence = null) => {
-        try {
-            if (window.electronAPI) {
-                const planned = currentItem.duration || 300;
-                const remaining = stepTimer;
-                const elapsed = Math.max(0, planned - remaining);
-
-                // Fetch current session prefs to get dayFocus
-                const prefsData = await window.electronAPI.invoke('prefs:get');
-                const dayFocus = prefsData?.session?.dayFocus || 'speed';
-
-                const score = calculateScore({
-                    moduleType: currentItem.type || currentItem.category?.toLowerCase() || 'exercise',
-                    dayFocus,
-                    targetBpm: currentItem.targetBPM,
-                    actualBpm: currentBpm,
-                    userRating: rating,
-                    confidence,
-                    plannedDuration: planned,
-                    actualDuration: elapsed
-                });
-
-                await window.electronAPI.invoke('library:update-progress', {
-                    id: currentItem.id,
-                    rating, // legacy support
-                    confidence, // legacy support
-                    bpm: currentBpm,
-                    actualDuration: elapsed,
-                    plannedDuration: planned,
-                    score
-                });
-
-                currentItem.lastSuccessBPM = currentBpm;
-            }
-        } catch (e) {
-            console.error("Failed to update progress:", e);
-        }
-
-        setIsFeedbackOpen(false);
-        if (pendingAction) {
-            pendingAction();
-            setPendingAction(null);
         }
     };
 
@@ -244,14 +140,6 @@ const SessionView = ({
 
     return (
         <div className="w-full h-full p-8 animate-in fade-in zoom-in-95 duration-500 relative overflow-hidden">
-            <FeedbackModal
-                isOpen={isFeedbackOpen}
-                exerciseTitle={currentItem?.title}
-                onRate={handleRate}
-                isTargetReached={isTargetReached}
-                projectedScores={projectedScores}
-            />
-
             <div className="h-full grid grid-cols-12 gap-8 max-w-[1600px] mx-auto min-h-0">
                 {/* LEFT: Focus Mode or Tab View */}
                 <div className="col-span-12 lg:col-span-7 flex flex-col relative min-h-0">
@@ -266,6 +154,7 @@ const SessionView = ({
                         routineLength={routine.length}
                         onNextWithFeedback={() => handleFeedbackTrigger(onNext)}
                         onFinishWithFeedback={() => handleFeedbackTrigger(onFinishSession)}
+                        isReview={currentItem?.isReview}
                     />
 
                     {currentItem && viewMode === 'tab' && (
@@ -306,6 +195,7 @@ const SessionView = ({
                             newTargetBpm={newTargetBpm}
                             setNewTargetBpm={setNewTargetBpm}
                             handleSaveTargetBpm={handleSaveTargetBpm}
+                            isReview={currentItem?.isReview}
                         />
                     )}
                 </div>

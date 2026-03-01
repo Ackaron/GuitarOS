@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, GripVertical, Settings, X, Music, BookOpen, Dumbbell, Zap, FileAudio, Target, Activity, Shield } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Settings, X, Music, BookOpen, Dumbbell, Zap, FileAudio, Target, Activity, Shield, Repeat } from 'lucide-react';
 import { Button } from './UI';
 import SearchableSelect from './SearchableSelect';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function ModuleConfig({ modules, setModules, catalog, onGenerate, dayFocus, setDayFocus }) {
+export default function ModuleConfig({
+    modules,
+    setModules,
+    catalog,
+    onGenerate,
+    dayFocus,
+    setDayFocus,
+    smartReview,
+    setSmartReview
+}) {
     const { t, language } = useLanguage();
 
     // Get unique folders
@@ -271,6 +280,18 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate,
                     <div className="flex items-center gap-3 mb-4 px-2">
                         <h3 className="text-gray-400 text-sm font-bold uppercase tracking-widest">Сессия</h3>
                         <div className="h-[1px] flex-1 bg-white/[0.05]"></div>
+
+                        {/* Smart Review Toggle Moved to Top */}
+                        <button
+                            onClick={() => setSmartReview(!smartReview)}
+                            title="Automatically insert recent low-scoring exercises at the start of your session"
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all 
+                                ${smartReview
+                                    ? 'bg-purple-500/10 border-purple-500/30 text-purple-400 shadow-lg shadow-purple-500/20'
+                                    : 'bg-white/[0.02] border-white/5 text-gray-600 hover:text-gray-400'}`}
+                        >
+                            <Repeat size={14} /> Smart Review
+                        </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                         {modules.map((m, i) => renderModuleCard(m, i))}
@@ -334,26 +355,28 @@ export default function ModuleConfig({ modules, setModules, catalog, onGenerate,
                 </div>
 
                 <div className="flex items-center gap-6">
-                    {/* Day Focus Selector */}
-                    <div className="flex items-center bg-white/[0.03] p-1 rounded-xl border border-white/[0.05]">
-                        <button
-                            onClick={() => setDayFocus('speed')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'speed' ? 'bg-[#E63946] text-white shadow-lg shadow-red-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-                        >
-                            <Activity size={14} /> Скорость
-                        </button>
-                        <button
-                            onClick={() => setDayFocus('clarity')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'clarity' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-                        >
-                            <Target size={14} /> Чистота
-                        </button>
-                        <button
-                            onClick={() => setDayFocus('stability')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'stability' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-                        >
-                            <Shield size={14} /> Стабильность
-                        </button>
+                    <div className="flex items-center gap-3">
+                        {/* Day Focus Selector */}
+                        <div className="flex items-center bg-white/[0.03] p-1 rounded-xl border border-white/[0.05]">
+                            <button
+                                onClick={() => setDayFocus('speed')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'speed' ? 'bg-[#E63946] text-white shadow-lg shadow-red-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <Activity size={14} /> Скорость
+                            </button>
+                            <button
+                                onClick={() => setDayFocus('clarity')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'clarity' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <Target size={14} /> Чистота
+                            </button>
+                            <button
+                                onClick={() => setDayFocus('stability')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${dayFocus === 'stability' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <Shield size={14} /> Стабильность
+                            </button>
+                        </div>
                     </div>
 
                     <button

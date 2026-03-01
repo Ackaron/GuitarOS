@@ -53,8 +53,17 @@ const SessionPlaylist = ({
                                     {idx + 1}
                                 </div>
                                 <div>
-                                    <div className={`font-bold text-lg ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'} `}>{item.title}</div>
-                                    <div className="text-xs text-gray-600 font-mono uppercase tracking-wider">{item.slotType} • {Math.floor(item.duration / 60)}m</div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`font-bold text-lg ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'} `}>{item.title}</div>
+                                        {item.isReview && (
+                                            <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 text-[9px] font-bold uppercase tracking-wider">
+                                                Review
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-xs text-gray-600 font-mono uppercase tracking-wider">
+                                        {item.slotType} • {Math.floor(item.duration / 60)}m
+                                    </div>
                                 </div>
                             </div>
                             {isActive && <Activity size={20} className="text-red-500 animate-pulse" />}

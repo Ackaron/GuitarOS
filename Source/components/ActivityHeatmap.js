@@ -15,7 +15,7 @@ const ActivityHeatmap = ({ data }) => {
 
     if (!data || data.length === 0) {
         return <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm">
-            <span>No mastery data yet.</span>
+            <span>No session score data yet.</span>
             <span className="text-xs opacity-50">Sessions will appear here.</span>
         </div>;
     }
@@ -36,7 +36,7 @@ const ActivityHeatmap = ({ data }) => {
 
                     <div className="flex items-baseline gap-2 mb-2">
                         <span className="text-2xl font-bold text-cyan-400">{d.mastery}%</span>
-                        <span className="text-xs text-gray-400">Mastery</span>
+                        <span className="text-xs text-gray-400">Quality Score</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs border-t border-white/10 pt-2">
@@ -50,13 +50,6 @@ const ActivityHeatmap = ({ data }) => {
                                 {d.isBpmPercentage ? `${d.bpm}%` : `${d.bpm} BPM`}
                             </span>
                         </div>
-                        {d.quality && d.quality !== '-' && (
-                            <div className="col-span-2 mt-1">
-                                <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold">
-                                    {d.quality} Quality
-                                </span>
-                            </div>
-                        )}
                     </div>
                 </div>
             );
@@ -69,7 +62,7 @@ const ActivityHeatmap = ({ data }) => {
             {/* Graph Title */}
             <div className="absolute top-2 left-4 z-10 flex items-center gap-2 pointer-events-none">
                 <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Mastery Index</span>
+                <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Quality Score</span>
             </div>
 
             <ResponsiveContainer width="100%" height="100%">

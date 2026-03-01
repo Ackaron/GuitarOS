@@ -77,6 +77,11 @@ function registerLibraryHandlers() {
         return await LibraryService.getCatalog();
     });
 
+    // Smart Review Engine: Get items that scored low recently
+    ipcMain.handle('fs:get-review-queue', async (_event, { days, threshold } = {}) => {
+        return await LibraryService.getReviewQueue(days, threshold);
+    });
+
     // Get recursive list of all sub-folders (for import target dropdown)
     ipcMain.handle('fs:get-all-folders', async () => {
         return await LibraryService.getAllFolderPaths();

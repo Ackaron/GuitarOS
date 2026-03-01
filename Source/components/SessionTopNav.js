@@ -12,7 +12,8 @@ const SessionTopNav = ({
     currentStepIndex,
     routineLength,
     onNextWithFeedback,
-    onFinishWithFeedback
+    onFinishWithFeedback,
+    isReview
 }) => {
     return (
         <div className="absolute top-0 right-0 z-20 flex items-center gap-4">
@@ -70,7 +71,12 @@ const SessionTopNav = ({
             )}
 
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+                {isReview && (
+                    <span className="mr-2 px-2 py-1 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 text-[10px] font-bold uppercase tracking-widest animate-pulse">
+                        Smart Review
+                    </span>
+                )}
                 <button
                     onClick={() => setViewMode('timer')}
                     className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${viewMode === 'timer' ? 'bg-[#E63946] text-white' : 'bg-transparent text-gray-500 hover:text-white hover:bg-white/5'}`}
