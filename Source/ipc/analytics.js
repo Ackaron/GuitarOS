@@ -23,6 +23,11 @@ function registerAnalyticsHandlers() {
         return await AnalyticsService.getGlobalHistory();
     });
 
+    // Get Skill Matrix (Radar Chart Data)
+    ipcMain.handle('analytics:get-skill-matrix', async () => {
+        return await AnalyticsService.getSkillMatrix();
+    });
+
     // Mastery trend (optionally filtered by category or item ID)
     ipcMain.handle('analytics:get-mastery', async (_event, filter, itemId) => {
         return await AnalyticsService.getMasteryTrend(filter, itemId);

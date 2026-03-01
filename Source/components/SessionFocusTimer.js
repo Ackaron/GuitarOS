@@ -32,7 +32,7 @@ const SessionFocusTimer = ({
 
     return (
         <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex flex-wrap items-center gap-3 mb-6 pr-48">
                 {onFinishWithFeedback && (
                     <button
                         onClick={onFinishWithFeedback}
@@ -43,15 +43,12 @@ const SessionFocusTimer = ({
                     </button>
                 )}
 
-                <span className="px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-bold uppercase tracking-widest border border-red-500/20">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${isReview
+                    ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                    : 'bg-red-500/10 text-red-500 border-red-500/20'
+                    }`}>
                     {currentItem.slotType || 'Focus'}
                 </span>
-
-                {isReview && (
-                    <span className="px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold uppercase tracking-widest border border-purple-500/20 animate-pulse">
-                        Smart Review
-                    </span>
-                )}
 
                 {/* Last Temp Badge */}
                 {(() => {
@@ -80,8 +77,8 @@ const SessionFocusTimer = ({
                 <span className="text-gray-500 text-sm font-mono">{currentItemStepInfo(currentStepIndex, routineLength)}</span>
             </div>
 
-            <h1 className="text-6xl md:text-7xl font-bold text-white leading-tight mb-4 tracking-tight text-shadow-glow">{currentItem.title}</h1>
-            <div className="mb-8 text-gray-500 font-mono text-sm flex items-center gap-2 h-8">
+            <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight mb-2 tracking-tight">{currentItem.title}</h1>
+            <div className="mb-6 text-gray-500 font-mono text-sm flex items-center gap-2 h-8">
                 {isEditingTarget ? (
                     <form
                         onSubmit={(e) => { e.preventDefault(); handleSaveTargetBpm(); }}
@@ -125,9 +122,9 @@ const SessionFocusTimer = ({
                 )}
             </div>
 
-            <div className="flex flex-wrap gap-4 text-gray-400 mb-12">
+            <div className="flex flex-wrap items-center gap-6 text-gray-400 mb-8 border-t border-b border-white/5 py-3">
                 {/* BPM Control */}
-                <div className="flex items-center gap-4 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
+                <div className="flex items-center gap-3">
                     {/* Edit Mode for Current BPM */}
                     <div className="flex items-center gap-2">
                         <Activity size={16} className="text-gray-400" />
@@ -198,18 +195,23 @@ const SessionFocusTimer = ({
                     {bpmChanged && <span className="text-yellow-500 text-xs ml-2 animate-pulse">Modified</span>}
                 </div>
 
-                <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
-                    <span className="font-bold text-blue-400">{currentItem.key || 'Key?'}</span>
+                <div className="w-px h-6 bg-white/10" />
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-blue-400">{currentItem.key || 'Key?'}</span>
                 </div>
-                <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
-                    <span className={`h-2 w-2 rounded-full ${currentItem.difficulty > 5 ? 'bg-red-500' : 'bg-green-500'}`} />
-                    <span>Lvl {currentItem.difficulty || 1}</span>
+
+                <div className="w-px h-6 bg-white/10" />
+
+                <div className="flex items-center gap-2">
+                    <span className={`h-1.5 w-1.5 rounded-full ${currentItem.difficulty > 5 ? 'bg-red-500' : 'bg-green-500'}`} />
+                    <span className="text-sm text-gray-300">Lvl {currentItem.difficulty || 1}</span>
                 </div>
             </div>
 
             {/* Timer */}
-            <div className="mb-12">
-                <div className="text-[10rem] font-bold text-white font-mono leading-none tracking-tighter tabular-nums drop-shadow-none">
+            <div className="mb-8">
+                <div className="text-[7rem] md:text-[8rem] font-bold text-white font-mono leading-none tracking-tighter tabular-nums drop-shadow-none">
                     {formatTime(stepTimer)}
                 </div>
                 <div className="flex gap-6 mt-8">
@@ -228,7 +230,7 @@ const SessionFocusTimer = ({
             </div>
 
             {/* Navigation */}
-            <div className="flex items-center gap-4 mb-8">
+            <div className="flex items-center gap-4 mb-8 border-b border-white/5 pb-8">
                 <button
                     onClick={onPrev}
                     disabled={currentStepIndex === 0}
@@ -247,7 +249,7 @@ const SessionFocusTimer = ({
 
             {/* Reaper Controls */}
             <ReaperControls />
-        </div>
+        </div >
     );
 };
 

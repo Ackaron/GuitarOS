@@ -142,7 +142,7 @@ const SessionView = ({
         <div className="w-full h-full p-8 animate-in fade-in zoom-in-95 duration-500 relative overflow-hidden">
             <div className="h-full grid grid-cols-12 gap-8 max-w-[1600px] mx-auto min-h-0">
                 {/* LEFT: Focus Mode or Tab View */}
-                <div className="col-span-12 lg:col-span-7 flex flex-col relative min-h-0">
+                <div className="col-span-12 lg:col-span-7 flex flex-col relative min-h-0 overflow-y-auto pr-4 custom-scrollbar pb-12">
                     <SessionTopNav
                         viewMode={viewMode}
                         setViewMode={setViewMode}

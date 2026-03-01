@@ -5,9 +5,10 @@ import {
 } from 'recharts';
 import {
     Activity, Target, Flame, ChevronLeft, Calendar,
-    Music, Zap, BookOpen, Layers, Star
+    Music, Zap, BookOpen, Layers, Star, Hexagon
 } from 'lucide-react';
 import ActivityHeatmap from './ActivityHeatmap';
+import SkillMatrixChart from './SkillMatrixChart';
 import { Button } from './UI';
 
 const ProgressView = () => {
@@ -18,6 +19,7 @@ const ProgressView = () => {
     // Data State
     const [globalStats, setGlobalStats] = useState(null);
     const [heatmapData, setHeatmapData] = useState([]);
+    const [skillMatrixData, setSkillMatrixData] = useState([]);
     const [categories, setCategories] = useState([]);
     const [itemHistory, setItemHistory] = useState([]);
     const [catalogItems, setCatalogItems] = useState([]); // For Category View list
@@ -35,10 +37,12 @@ const ProgressView = () => {
         // Retrieve Mastery Trend (Global)
         const history = await window.electronAPI.invoke('analytics:get-mastery');
         const cats = await window.electronAPI.invoke('analytics:get-categories');
+        const matrix = await window.electronAPI.invoke('analytics:get-skill-matrix');
 
         setGlobalStats(stats);
         setHeatmapData(history);
         setCategories(cats);
+        setSkillMatrixData(matrix);
     };
 
     const handleCategoryClick = async (categoryName) => {
@@ -82,17 +86,26 @@ const ProgressView = () => {
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <KPICard icon={Activity} label="Total Hours" value={globalStats?.totalHours || 0} sub="Lifetime Practice" color="text-[#2563eb]" bg="bg-[#2563eb]/10" />
-                <KPICard icon={Target} label="Avg Quality" value={`${globalStats?.averageScore || 0}%`} sub="Session Score" color="text-yellow-500" bg="bg-yellow-500/10" />
-                <KPICard icon={Flame} label="Streak" value={`${globalStats?.daysActive || 0} Days`} sub="Consistency" color="text-orange-500" bg="bg-orange-500/10" />
-                <KPICard icon={Calendar} label="Sessions" value={globalStats?.totalCheckins || 0} sub="Check-ins" color="text-blue-500" bg="bg-blue-500/10" />
+                <KPICard icon={Activity} label="Всего часов" value={globalStats?.totalHours || 0} sub="За все время" color="text-[#2563eb]" bg="bg-[#2563eb]/10" />
+                <KPICard icon={Target} label="Ср. Оценка" value={`${globalStats?.averageScore || 0}%`} sub="За сессию" color="text-yellow-500" bg="bg-yellow-500/10" />
+                <KPICard icon={Flame} label="Серия" value={`${globalStats?.daysActive || 0} Дней`} sub="Регулярность" color="text-orange-500" bg="bg-orange-500/10" />
+                <KPICard icon={Calendar} label="Сессии" value={globalStats?.totalCheckins || 0} sub="Завершено" color="text-blue-500" bg="bg-blue-500/10" />
             </div>
 
             {/* Global Quality Graph */}
             <div className="bg-[#1A1D2D] p-6 rounded-2xl border border-white/5">
-                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                    <Activity size={20} className="text-[#2563eb]" /> Practice Quality Trend
-                </h3>
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Activity size={20} className="text-[#2563eb]" /> Тренд качества
+                    </h3>
+                    <Button
+                        onClick={() => setViewLevel('skills')}
+                        variant="ghost"
+                        className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 border border-blue-500/20 text-sm px-4 rounded-full flex items-center gap-2"
+                    >
+                        <Hexagon size={16} /> Матрица навыков
+                    </Button>
+                </div>
                 <ActivityHeatmap data={heatmapData} />
             </div>
 
@@ -114,7 +127,7 @@ const ProgressView = () => {
                                 </div>
                                 <div>
                                     <h4 className="text-lg font-bold text-white">{cat.name}</h4>
-                                    <div className="text-sm text-gray-500">{cat.sessions} sessions</div>
+                                    <div className="text-sm text-gray-500">{cat.sessions} сессий</div>
                                 </div>
                             </div>
                             <div className="text-right">
@@ -131,12 +144,51 @@ const ProgressView = () => {
         </div>
     );
 
+    const renderSkillsView = () => (
+        <div className="space-y-6 animate-in slide-in-from-right-10 duration-300">
+            <div className="bg-[#1A1D2D] p-8 rounded-3xl border border-white/5 shadow-2xl flex flex-col xl:flex-row gap-8">
+                {/* Radar Chart */}
+                <div className="flex-1 min-h-[500px] flex flex-col">
+                    <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                        <Hexagon size={24} className="text-[#2563eb]" /> Матрица навыков
+                    </h3>
+                    <div className="flex-1 bg-white/5 rounded-2xl p-4 flex items-center justify-center">
+                        <SkillMatrixChart data={skillMatrixData} />
+                    </div>
+                </div>
+
+                {/* Score List */}
+                <div className="w-full xl:w-[400px] flex flex-col">
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                        <Activity size={20} className="text-[#2563eb]" /> Очки техник
+                    </h3>
+                    <div className="space-y-3 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
+                        {skillMatrixData.map(skill => (
+                            <div key={skill.subject} className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col gap-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-white font-medium">{skill.subject}</span>
+                                    <span className="text-blue-400 font-mono text-sm">{skill.A} / 100</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-500" style={{ width: `${skill.A}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                        {skillMatrixData.length === 0 && (
+                            <div className="text-center text-gray-500 text-sm mt-8">Техники пока не зафиксированы.</div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
     const renderCategoryView = () => (
         <div className="space-y-6 animate-in slide-in-from-right-10 duration-300">
             {/* Category Quality Graph */}
             <div className="bg-[#1A1D2D] p-6 rounded-2xl border border-white/5 mb-8">
                 <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                    <Activity size={20} className="text-[#2563eb]" /> {selectedCategory} Quality
+                    <Activity size={20} className="text-[#2563eb]" /> Качество: {selectedCategory}
                 </h3>
                 <ActivityHeatmap data={categoryMastery} />
             </div>
@@ -154,7 +206,7 @@ const ProgressView = () => {
                             </div>
                             <div>
                                 <div className="font-bold text-white text-lg">{item.title}</div>
-                                <div className="text-xs text-gray-500 uppercase tracking-widest">{item.key || 'No Key'}</div>
+                                <div className="text-xs text-gray-500 uppercase tracking-widest">{item.key || 'Нет тональности'}</div>
                             </div>
                         </div>
                         <div className="flex items-center gap-6">
@@ -177,7 +229,7 @@ const ProgressView = () => {
                         </div>
                     </div>
                     <div className="text-right">
-                        <div className="text-sm text-gray-500 uppercase tracking-widest mb-1">Last Quality Score</div>
+                        <div className="text-sm text-gray-500 uppercase tracking-widest mb-1">Последняя оценка качества</div>
                         {itemMastery.length > 0 ? (
                             <div className="text-3xl font-mono font-bold text-[#2563eb]">
                                 {itemMastery[itemMastery.length - 1].mastery}%
@@ -198,7 +250,7 @@ const ProgressView = () => {
                     const lastEntry = itemHistory[itemHistory.length - 1];
                     return (
                         <div className="bg-black/20 p-4 rounded-xl text-center border border-white/5">
-                            <div className="text-gray-500 text-xs uppercase mb-2 tracking-wider">Top Speed</div>
+                            <div className="text-gray-500 text-xs uppercase mb-2 tracking-wider">Макс. Темп</div>
                             <div className="text-white font-bold text-2xl font-mono">
                                 {lastEntry && lastEntry.bpm ? `${lastEntry.bpm} BPM` : '--'}
                             </div>
@@ -210,11 +262,11 @@ const ProgressView = () => {
     );
 
     const handleClearStats = async () => {
-        if (confirm("Are you sure you want to clear ALL statistics? This cannot be undone.")) {
+        if (confirm("Вы уверены, что хотите удалить ВСЮ статистику? Отменить действие будет невозможно.")) {
             if (window.electronAPI) {
                 await window.electronAPI.invoke('analytics:clear-history');
                 loadGlobalData(); // Refresh
-                alert("Statistics cleared!");
+                alert("Статистика удалена!");
             }
         }
     };
@@ -237,9 +289,10 @@ const ProgressView = () => {
                     )}
                     <div>
                         <h1 className="text-3xl font-bold text-white tracking-tight">
-                            {viewLevel === 'dashboard' ? 'Progress Dashboard' :
-                                viewLevel === 'category' ? selectedCategory :
-                                    'Exercise Detail'}
+                            {viewLevel === 'dashboard' ? 'Прогресс' :
+                                viewLevel === 'skills' ? 'Дерево навыков' :
+                                    viewLevel === 'category' ? selectedCategory :
+                                        'Детализация'}
                         </h1>
                         {/* Breadcrumbs / Subtitle */}
                         {viewLevel === 'detail' && selectedCategory && (
@@ -259,12 +312,13 @@ const ProgressView = () => {
                         variant="outline"
                         className="border-red-500/20 text-red-500 hover:bg-red-500/10 hover:border-red-500/50 text-xs px-4 py-2 h-auto"
                     >
-                        Reset Stats
+                        Сбросить статистику
                     </Button>
                 )}
             </div>
 
             {viewLevel === 'dashboard' && renderDashboard()}
+            {viewLevel === 'skills' && renderSkillsView()}
             {viewLevel === 'category' && renderCategoryView()}
             {viewLevel === 'detail' && renderDetailView()}
         </div>

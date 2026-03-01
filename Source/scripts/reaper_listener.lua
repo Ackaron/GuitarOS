@@ -30,9 +30,19 @@ function parse_json(str)
   local data = {}
   data.action = str:match('"action":%s*"(.-)"')
   data.timestamp = str:match('"timestamp":%s*(%d+)')
-  data.bpm = str:match('"bpm":%s*(%d+)')
+  data.bpm = str:match('"bpm":%s*(%-?%d+%.?%d*)')
   data.backing = str:match('"backing":%s*"(.-)"')
   data.original = str:match('"original":%s*"(.-)"')
+  
+  data.command = str:match('"command":%s*"(.-)"')
+  data.trackIndex = str:match('"trackIndex":%s*(%d+)')
+  
+  local val = str:match('"value":%s*(%-?%d+%.?%d*)')
+  if val then data.value = val end
+  
+  if str:match('"value":%s*true') then data.value = 1 end
+  if str:match('"value":%s*false') then data.value = 0 end
+  
   return data
 end
 
@@ -140,6 +150,10 @@ function main()
         -- Finalize: Set Cursor to 0 and Scroll View
         reaper.SetEditCurPos(0, false, false)
         reaper.CSurf_OnScroll(0, 0) -- Scroll to start
+        
+        -- FORCE UI REDRAW so the tracks appear immediately
+        reaper.TrackList_AdjustWindows(false)
+        reaper.UpdateArrange()
 
         log("Session Loaded Completely.")
       
@@ -148,6 +162,33 @@ function main()
              log("GuitarOS: Updating BPM to " .. data.bpm)
              reaper.SetTempoTimeSigMarker(0, -1, 0, -1, -1, tonumber(data.bpm), 0, 0, false)
              reaper.UpdateTimeline()
+          end
+      elseif data.action == "TRANSPORT" then
+          if data.command == "play" then reaper.Main_OnCommand(1007, 0)
+          elseif data.command == "stop" then 
+              reaper.Main_OnCommand(1016, 0) -- Stop
+              reaper.Main_OnCommand(40042, 0) -- Go to start of project
+          elseif data.command == "record" then reaper.Main_OnCommand(1013, 0)
+          elseif data.command == "pause" then reaper.Main_OnCommand(1008, 0)
+          elseif data.command == "rewind" then reaper.Main_OnCommand(40042, 0)
+          elseif data.command == "metronome" then reaper.Main_OnCommand(40364, 0)
+          end
+      elseif data.action == "SET_VOLUME" then
+          if data.trackIndex and data.value then
+              -- Track indices from frontend are 1-based (from old HTTP API)
+              local tr = reaper.GetTrack(0, tonumber(data.trackIndex) - 1)
+              if tr then 
+                  reaper.SetMediaTrackInfo_Value(tr, "D_VOL", tonumber(data.value)) 
+                  reaper.TrackList_AdjustWindows(false)
+              end
+          end
+      elseif data.action == "SET_MUTE" then
+          if data.trackIndex and data.value then
+              local tr = reaper.GetTrack(0, tonumber(data.trackIndex) - 1)
+              if tr then 
+                  reaper.SetMediaTrackInfo_Value(tr, "B_MUTE", tonumber(data.value)) 
+                  reaper.TrackList_AdjustWindows(false)
+              end
           end
       end
     end

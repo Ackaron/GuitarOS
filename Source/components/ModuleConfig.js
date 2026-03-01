@@ -68,7 +68,7 @@ export default function ModuleConfig({
 
         switch (intentType) {
             case 'theory':
-                setModules([...modules, { ...baseModule, type: 'theory', customNames: { ru: 'Теория', en: 'Theory' } }]);
+                setModules([...modules, { ...baseModule, type: 'theory', customNames: { ru: 'Тональность', en: 'Theory' } }]);
                 break;
             case 'technique':
                 setModules([...modules, { ...baseModule, type: 'technique', customNames: { ru: 'Техника', en: 'Technique' } }]);
@@ -76,8 +76,11 @@ export default function ModuleConfig({
             case 'exercise':
                 setModules([...modules, { ...baseModule, type: 'exercise', customNames: { ru: 'Этюд', en: 'Etude' } }]);
                 break;
+            case 'folder':
+                setModules([...modules, { ...baseModule, type: 'folder', customNames: { ru: 'Раздел / Курс', en: 'Folder' } }]);
+                break;
             case 'repertoire':
-                setModules([...modules, { ...baseModule, type: 'repertoire', customNames: { ru: 'Репертуар', en: 'Repertoire' } }]);
+                setModules([...modules, { ...baseModule, type: 'repertoire', customNames: { ru: 'Конкретный трек', en: 'Specific Track' } }]);
                 break;
             default:
                 break;
@@ -101,10 +104,11 @@ export default function ModuleConfig({
         let icon = <Zap size={20} className="text-yellow-400" />;
         let defaultLabel = "Exercise";
 
-        if (module.type === 'theory') { icon = <BookOpen size={20} className="text-blue-400" />; defaultLabel = t('module.theory'); }
-        if (module.type === 'technique') { icon = <Dumbbell size={20} className="text-red-400" />; defaultLabel = t('module.technique'); }
-        if (module.type === 'repertoire') { icon = <Music size={20} className="text-purple-400" />; defaultLabel = t('module.repertoire'); }
-        if (module.type === 'exercise') { icon = <Zap size={20} className="text-green-400" />; defaultLabel = t('module.exercises'); }
+        if (module.type === 'theory') { icon = <BookOpen size={20} className="text-blue-400" />; defaultLabel = 'Тональность'; }
+        if (module.type === 'technique') { icon = <Dumbbell size={20} className="text-red-400" />; defaultLabel = 'Техника'; }
+        if (module.type === 'exercise') { icon = <Zap size={20} className="text-green-400" />; defaultLabel = 'Этюд'; }
+        if (module.type === 'folder') { icon = <BookOpen size={20} className="text-yellow-400" />; defaultLabel = 'Раздел / Курс'; }
+        if (module.type === 'repertoire') { icon = <Music size={20} className="text-purple-400" />; defaultLabel = 'Конкретный трек'; }
 
         let label = defaultLabel;
 
@@ -125,7 +129,7 @@ export default function ModuleConfig({
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, index)}
                 style={{ zIndex: 100 - index }}
-                className={`p-6 border border-white/[0.05] rounded-2xl relative group transition-all h-full flex flex-col justify-between 
+                className={`p-6 rounded-2xl relative group transition-all h-full flex flex-col justify-between border-transparent 
                 ${isDragging ? 'opacity-40 bg-white/5 scale-95' : 'bg-white/[0.02] hover:bg-white/[0.04]'}`}
             >
                 <div className="flex justify-between items-start mb-6">
@@ -192,8 +196,10 @@ export default function ModuleConfig({
                     {/* Target Selector */}
                     <div>
                         <div className="text-[10px] text-gray-500 font-medium uppercase tracking-widest mb-2">
-                            {module.type === 'theory' ? t('module.key_center') :
-                                module.type === 'technique' ? t('module.focus_tag') : t('module.select_file')}
+                            {module.type === 'theory' ? 'Тональность' :
+                                module.type === 'technique' ? 'Какие теги улучшаем?' :
+                                    module.type === 'folder' ? 'Раздел' :
+                                        module.type === 'exercise' ? 'Какой этюд?' : 'Что играем?'}
                         </div>
 
                         {module.type === 'theory' && (
@@ -217,12 +223,19 @@ export default function ModuleConfig({
                             />
                         )}
 
-                        {/* STANDARD EXERCISE (ETUDE) */}
+                        {module.type === 'folder' && (
+                            <SearchableSelect
+                                options={folders.map(f => ({ label: f, value: f }))}
+                                value={module.target}
+                                onChange={(val) => updateModule(module.id, 'target', val)}
+                                placeholder="Например: Alternate Picking"
+                            />
+                        )}
+
                         {module.type === 'exercise' && (
                             <SearchableSelect
                                 options={catalog.items
-                                    // Strictly filter by "Etude" category to avoid showing other folders
-                                    .filter(i => i.category === 'Etude')
+                                    .filter(i => i.category === 'Etude' || i.path.includes('Etude'))
                                     .map(i => ({
                                         label: i.title,
                                         value: i.id
@@ -232,7 +245,7 @@ export default function ModuleConfig({
                                 onChange={(val) => {
                                     updateModule(module.id, { target: val, strategy: 'item' });
                                 }}
-                                placeholder="Pick an exercise..."
+                                placeholder="Поиск по названию..."
                             />
                         )}
 
@@ -244,7 +257,7 @@ export default function ModuleConfig({
                                 }
                                 value={module.target}
                                 onChange={(val) => updateModule(module.id, 'target', val)}
-                                placeholder={t('module.pick_song')}
+                                placeholder="Поиск по названию..."
                             />
                         )}
                     </div>
@@ -316,28 +329,34 @@ export default function ModuleConfig({
                         {isAddMenuOpen && (
                             <div className="absolute bottom-full left-0 mb-3 w-64 bg-[#1A1D27] border border-white/5 rounded-xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
                                 <button
-                                    onClick={() => handleAddIntent('theory')}
+                                    onClick={() => handleAddIntent('repertoire')}
                                     className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                                 >
-                                    <BookOpen size={16} className="text-blue-400" /> Теория (Theory)
+                                    <Music size={16} className="text-purple-400" /> Выучить конкретный трек
                                 </button>
                                 <button
                                     onClick={() => handleAddIntent('technique')}
                                     className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                                 >
-                                    <Dumbbell size={16} className="text-red-400" /> Техника (Technique)
+                                    <Dumbbell size={16} className="text-red-400" /> Подтянуть технику
                                 </button>
                                 <button
                                     onClick={() => handleAddIntent('exercise')}
                                     className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                                 >
-                                    <Zap size={16} className="text-yellow-400" /> Этюд (Etude)
+                                    <Zap size={16} className="text-green-400" /> Выучить конкретный этюд
                                 </button>
                                 <button
-                                    onClick={() => handleAddIntent('repertoire')}
+                                    onClick={() => handleAddIntent('folder')}
                                     className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                                 >
-                                    <Music size={16} className="text-purple-400" /> Репертуар (Repertoire)
+                                    <BookOpen size={16} className="text-yellow-400" /> Пройти раздел/курс целиком
+                                </button>
+                                <button
+                                    onClick={() => handleAddIntent('theory')}
+                                    className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                >
+                                    <Zap size={16} className="text-blue-400" /> Изучить тональность
                                 </button>
                             </div>
                         )}

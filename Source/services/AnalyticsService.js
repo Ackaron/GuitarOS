@@ -257,6 +257,78 @@ class AnalyticsService {
         }));
     }
 
+    // ─── Level 4 (Skill Matrix) ─────────────────────────────────────────────
+
+    /**
+     * Calculates proficiency across all known tags (Skill Tree / Radar Chart data).
+     * Extracts tags from catalog item definitions and folders.
+     */
+    async getSkillMatrix() {
+        const db = getUserDB();
+        await db.read();
+        const catalog = await LibraryService.getCatalog();
+
+        let tagStats = {};
+
+        // Helper to initialize or increment tag score
+        const addScoreToTag = (tag, score, weight) => {
+            if (!tagStats[tag]) tagStats[tag] = { totalScore: 0, count: 0 };
+            tagStats[tag].totalScore += (score * weight);
+            tagStats[tag].count += weight;
+        };
+
+        (db.data.exercises || []).forEach(ex => {
+            if (!ex.history || ex.history.length === 0) return;
+
+            const catalogItem = catalog.items.find(i => i.id === ex.id);
+            if (!catalogItem || !catalogItem.tags) return;
+
+            // Get average score of this specific exercise from its history
+            let exTotalScore = 0;
+            let exCount = 0;
+
+            ex.history.forEach(h => {
+                if (h.score !== undefined) {
+                    exTotalScore += h.score;
+                    exCount++;
+                } else if (h.confidence !== undefined) {
+                    // Legacy fallback
+                    exTotalScore += (h.confidence / 5) * 100;
+                    exCount++;
+                }
+            });
+
+            if (exCount === 0) return;
+            const avgExerciseScore = exTotalScore / exCount;
+            // Weigh the score by the number of times they practiced it (up to a cap)
+            const weight = Math.min(exCount, 10);
+
+            // Distribute this exercise's score to all its associated tags
+            catalogItem.tags.forEach(tag => {
+                // Filter out very broad structural tags if they exist as folders
+                if (['Exercises', 'Songs', 'Technique', 'Theory', 'Custom'].includes(tag)) return;
+                addScoreToTag(tag, avgExerciseScore, weight);
+            });
+        });
+
+        // Calculate final averages and format for Recharts RadarChart
+        const skillMatrix = Object.keys(tagStats).map(tag => {
+            const stat = tagStats[tag];
+            const rawScore = stat.count > 0 ? (stat.totalScore / stat.count) : 0;
+            return {
+                subject: tag,
+                A: Math.round(rawScore),
+                fullMark: 100
+            };
+        });
+
+        // Filter out tags with barely any data and sort by highest score, then slice top N
+        return skillMatrix
+            .filter(s => s.A > 0)
+            .sort((a, b) => b.A - a.A)
+            .slice(0, 15); // Max 15 points on the radar chart to keep it readable
+    }
+
     /** Reset all history and global statistics. */
     async clearHistory() {
         const db = getUserDB();

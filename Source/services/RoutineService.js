@@ -21,31 +21,7 @@ class RoutineService {
         const allItems = catalog.items;
         const pick = arr => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : null;
 
-        // --- Smart Review Items Logic ---
-        const reviewItems = [];
-        let allocatedReviewTime = 0;
-        if (smartReview) {
-            const reviewQueue = await LibraryService.getReviewQueue(2, 60);
-            for (const review of reviewQueue) {
-                const catalogItem = allItems.find(i => i.id === review.id);
-                if (catalogItem) {
-                    const fullItem = await this._enrichItemConfig(catalogItem);
-                    reviewItems.push({
-                        ...fullItem,
-                        isReview: true,
-                        duration: 300, // 5 mins
-                        slotType: 'Smart Review',
-                        moduleId: 'smart_review'
-                    });
-                    allocatedReviewTime += 5;
-                }
-                if (reviewItems.length >= 2) break; // cap at 2 items (10 mins)
-            }
-        }
-
-        // Adjust remaining time for regular modules
-        const remainingMinutes = Math.max(10, totalMinutes - allocatedReviewTime);
-
+        // 1. First, build the regular session to see what items are actually going to be played.
         const validModules = [];
         let totalValidWeight = 0;
 
@@ -59,27 +35,63 @@ class RoutineService {
 
         if (validModules.length === 0) return [];
 
+        // Estimate review time first so we know how much time is left for regular modules
+        // Max 2 items (10 mins)
+        let allocatedReviewTime = smartReview ? 10 : 0;
+        const remainingMinutes = Math.max(10, totalMinutes - allocatedReviewTime);
+
         const routine = [];
+        const plannedItemIds = new Set();
+
+        // 2. Select items for the regular routine
         for (const vm of validModules) {
             const adjustedRatio = vm.config.percentage / totalValidWeight;
             const duration = Math.floor(remainingMinutes * 60 * adjustedRatio);
 
             if (duration < 60) continue;
 
-            // Remove items that are already in Smart Review from the pool
-            const pool = vm.pool.filter(item => !reviewItems.some(ri => ri.id === item.id));
-            if (pool.length === 0) continue;
+            const selectedItem = pick(vm.pool);
+            if (!selectedItem) continue;
 
-            const selectedItem = pick(pool);
+            plannedItemIds.add(selectedItem.id);
             const fullItem = await this._enrichItemConfig(selectedItem);
 
             routine.push({ ...fullItem, duration, slotType: vm.slotType, moduleId: vm.config.id });
+        }
+
+        // 3. Select Smart Review Items (filtering out already planned items)
+        const reviewItems = [];
+        let actualReviewTime = 0;
+
+        if (smartReview) {
+            const reviewQueue = await LibraryService.getReviewQueue(2, 60);
+            for (const review of reviewQueue) {
+                // Skip if this item is already scheduled in today's main routine
+                if (plannedItemIds.has(review.id)) continue;
+
+                const catalogItem = allItems.find(i => i.id === review.id);
+                if (catalogItem) {
+                    const fullItem = await this._enrichItemConfig(catalogItem);
+                    reviewItems.push({
+                        ...fullItem,
+                        isReview: true,
+                        duration: 300, // 5 mins
+                        slotType: 'Smart Review',
+                        moduleId: 'smart_review'
+                    });
+                    actualReviewTime += 5;
+                }
+                if (reviewItems.length >= 2) break; // cap at 2 items (10 mins)
+            }
         }
 
         // Prepend review items so they appear first
         if (reviewItems.length > 0) {
             routine.unshift(...reviewItems);
         }
+
+        // Note: We might be short a few minutes if the Smart Review queue was empty or 
+        // items were deduplicated, but that's okay for an organic session.
 
         return await this._mergeProgressionData(routine);
     }

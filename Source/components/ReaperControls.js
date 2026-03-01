@@ -15,8 +15,8 @@ const ReaperControls = () => {
     const handleTransport = async (action) => {
         if (window.electronAPI) {
             if (action === 'metronome') {
-                // Toggle Metronome (ID 40364)
-                await window.electronAPI.invoke('reaper:command', '40364');
+                // Toggle Metronome
+                await window.electronAPI.invoke('reaper:transport', 'metronome');
                 setIsMetronomeOn(!isMetronomeOn);
                 return;
             }
@@ -64,11 +64,11 @@ const ReaperControls = () => {
     };
 
     return (
-        <div className="flex flex-col gap-4 bg-[#1A1D2D] p-4 rounded-3xl border border-white/5 shadow-2xl w-full max-w-2xl mx-auto mt-8">
+        <div className="flex flex-col gap-4 w-full max-w-2xl mt-4">
             {/* Header / Transport */}
             <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                <div className="text-sm font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                     Reaper Control
                 </div>
 
@@ -122,14 +122,14 @@ const ReaperControls = () => {
             </div>
 
             {/* Mixer */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-6">
                 {tracks.map(track => (
-                    <div key={track.id} className="bg-[#13151F] rounded-xl p-3 border border-white/5 flex flex-col gap-3">
+                    <div key={track.id} className="flex flex-col gap-3">
                         <div className="flex justify-between items-center">
-                            <span className={`font-bold text-sm ${track.color}`}>{track.name}</span>
+                            <span className={`font-bold text-xs ${track.color}`}>{track.name}</span>
                             <button
                                 onClick={() => toggleMute(track.id)}
-                                className={`p-1.5 rounded-lg transition-colors ${track.muted ? 'bg-red-500 text-white' : 'bg-white/5 text-gray-500 hover:text-white'}`}
+                                className={`p-1 rounded transition-colors ${track.muted ? 'text-red-500' : 'text-gray-500 hover:text-white'}`}
                                 title={track.muted ? "Unmute" : "Mute"}
                             >
                                 {track.muted ? <VolumeX size={14} /> : <Volume2 size={14} />}

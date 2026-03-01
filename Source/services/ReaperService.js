@@ -41,21 +41,11 @@ class ReaperService {
     }
 
     /**
-     * Internal fetch wrapper
+     * Internal fetch wrapper (Deprecating for file-based IPC)
      */
     _fetch(endpoint) {
-        return new Promise((resolve, reject) => {
-            const url = `${this.baseUrl}${endpoint}`;
-
-            http.get(url, (res) => {
-                let data = '';
-                res.on('data', (chunk) => data += chunk);
-                res.on('end', () => resolve({ success: true, data }));
-            }).on('error', (err) => {
-                console.error(`Reaper Connection Error (${url}):`, err.message);
-                resolve({ success: false, error: err.message, code: 'REAPER_CONNECTION_ERROR' });
-            });
-        });
+        console.warn('ReaperService HTTP fetch is disabled. Use File IPC instead.');
+        return Promise.resolve({ success: false, error: 'HTTP IPC Disabled' });
     }
 
     /**
@@ -260,29 +250,23 @@ rc_uri=
     }
 
     async transport(action) {
-        // Command IDs
-        const COMMANDS = {
-            'play': '1007',  // Transport: Play
-            'stop': '1016',  // Transport: Stop
-            'record': '1013', // Transport: Record
-            'pause': '1008', // Transport: Pause
-            'rewind': '40042' // Go to start
-        };
-
-        const cmd = COMMANDS[action];
-        if (cmd) {
-            return this.sendCommand(cmd);
-        }
+        const ReaperFileService = require('./ReaperFileService');
+        return ReaperFileService.sendCommand({ action: 'TRANSPORT', command: action });
     }
 
     async setTrackVolume(trackIndex, volume) {
-        // trackIndex is 1-based for Reaper Web Interface SET/TRACK/x
-        return this._fetch(`SET/TRACK/${trackIndex}/VOL/${volume}`);
+        const ReaperFileService = require('./ReaperFileService');
+        return ReaperFileService.sendCommand({ action: 'SET_VOLUME', trackIndex, value: volume });
     }
 
     async setTrackMute(trackIndex, isMuted) {
-        // SET/TRACK/i/MUTE/1 or 0
-        return this._fetch(`SET/TRACK/${trackIndex}/MUTE/${isMuted ? 1 : 0}`);
+        const ReaperFileService = require('./ReaperFileService');
+        return ReaperFileService.sendCommand({ action: 'SET_MUTE', trackIndex, value: isMuted ? 1 : 0 });
+    }
+
+    async setBpm(bpm) {
+        const ReaperFileService = require('./ReaperFileService');
+        return ReaperFileService.sendCommand({ action: 'SET_BPM', bpm });
     }
 
     _sleep(ms) {
