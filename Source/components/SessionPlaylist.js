@@ -1,6 +1,6 @@
-import React from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, Download } from 'lucide-react';
 import { Button } from './UI';
+import { useDialog } from '../context/DialogContext';
 
 const SessionPlaylist = ({
     routine,
@@ -8,27 +8,52 @@ const SessionPlaylist = ({
     totalMinutes,
     onUpdateTotalTime,
     onLoadStep,
-    onFinishWithFeedback
+    onFinishWithFeedback,
+    isGuidedMode
 }) => {
+    const { showAlert } = useDialog();
+
     return (
         <div className="bg-transparent rounded-none border-l border-white/[0.05] p-8 flex flex-col h-full">
             <div className="mb-6 flex flex-col gap-4">
                 <h3 className="text-2xl font-bold text-white flex justify-between items-center px-2">
-                    Session Map
-                    <span className="text-sm font-sans font-normal text-gray-500 bg-white/5 px-3 py-1 rounded-full">{routine.length} Steps</span>
+                    {isGuidedMode ? 'Готовый Курс' : 'Session Map'}
+                    <div className="flex gap-2 items-center">
+                        {!isGuidedMode && (
+                            <Button
+                                variant="outline"
+                                className="bg-white/5 border-white/10 hover:bg-white/10 text-xs px-3 py-1 flex gap-2 h-auto"
+                                onClick={async () => {
+                                    if (window.electronAPI) {
+                                        const res = await window.electronAPI.invoke('library:export-routine', routine);
+                                        if (res && res.success) await showAlert(`Пользовательский курс успешно спакован:\n${res.path}`, { icon: 'success' });
+                                        else if (res && res.error !== 'User canceled') await showAlert(`Ошибка экспорта: ${res.error}`, { icon: 'error' });
+                                    }
+                                }}
+                                title="Экспортировать этот плейлист в виде готового курса .gpack"
+                            >
+                                <Download size={14} /> В Курс
+                            </Button>
+                        )}
+                        <span className="text-sm font-sans font-normal text-gray-500 bg-white/5 px-3 py-1 rounded-full">{routine.length} Steps</span>
+                    </div>
                 </h3>
 
                 {/* Total Time Input */}
                 <div className="flex items-center gap-4 bg-white/[0.02] p-3 rounded-xl border-none">
                     <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">Total Time</div>
-                    <div className="flex-1 flex items-center gap-2">
-                        <input
-                            type="number"
-                            min="1"
-                            value={totalMinutes}
-                            onChange={(e) => onUpdateTotalTime(e.target.value)}
-                            className="bg-transparent text-white font-mono font-bold text-lg w-full outline-none text-right"
-                        />
+                    <div className="flex-1 flex items-center justify-end gap-2">
+                        {isGuidedMode ? (
+                            <div className="text-white font-mono font-bold text-lg">{totalMinutes}</div>
+                        ) : (
+                            <input
+                                type="number"
+                                min="1"
+                                value={totalMinutes}
+                                onChange={(e) => onUpdateTotalTime(e.target.value)}
+                                className="bg-transparent text-white font-mono font-bold text-lg w-full outline-none text-right"
+                            />
+                        )}
                         <span className="text-brand-gray text-sm font-bold">min</span>
                     </div>
                 </div>

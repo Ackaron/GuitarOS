@@ -16,6 +16,11 @@ function registerLibraryHandlers() {
         return await LibraryService.getLibrary();
     });
 
+    // Get strict imported courses
+    ipcMain.handle('fs:get-courses', async () => {
+        return await LibraryService.getCourses();
+    });
+
     // Get contents of a specific folder (supports nested paths)
     ipcMain.handle('fs:get-folder', async (_event, folderName) => {
         return await LibraryService.getFolderContents(folderName);
@@ -130,6 +135,61 @@ function registerLibraryHandlers() {
             console.error('fs:read-file failed:', err);
             return null;
         }
+    });
+
+    // Export a folder as a .gpack
+    ipcMain.handle('library:export-pack', async (_event, relPath) => {
+        let defaultName = 'LibraryBackup.gpack';
+        if (relPath) {
+            defaultName = path.basename(relPath) + '.gpack';
+        }
+
+        const { canceled, filePath } = await dialog.showSaveDialog({
+            title: 'Export Guitar Pack',
+            defaultPath: defaultName,
+            filters: [{ name: 'GuitarOS Pack', extensions: ['gpack'] }]
+        });
+
+        if (canceled || !filePath) return { success: false, error: 'User canceled' };
+
+        return await LibraryService.exportPack(relPath, filePath);
+    });
+
+    // Export a routine as a strict .gpack course
+    ipcMain.handle('library:export-routine', async (_event, routine) => {
+        const defaultName = 'My_Custom_Course.gcourse';
+        const { canceled, filePath } = await dialog.showSaveDialog({
+            title: 'Export Custom Course',
+            defaultPath: defaultName,
+            filters: [{ name: 'GuitarOS Course Pack', extensions: ['gcourse'] }]
+        });
+
+        if (canceled || !filePath) return { success: false, error: 'User canceled' };
+
+        return await LibraryService.exportRoutine(routine, filePath);
+    });
+
+    // Import a .gpack into the library
+    ipcMain.handle('library:import-pack', async () => {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Import Guitar Pack',
+            properties: ['openFile'],
+            filters: [{ name: 'GuitarOS Pack', extensions: ['gpack', 'gcourse'] }]
+        });
+
+        if (canceled || !filePaths || filePaths.length === 0) return { success: false, error: 'User canceled' };
+
+        return await LibraryService.importPack(filePaths[0]);
+    });
+
+    // Update course progress
+    ipcMain.handle('library:update-course-progress', async (_event, courseId, highestUnlockedDay) => {
+        return await LibraryService.updateCourseProgress(courseId, highestUnlockedDay);
+    });
+
+    // Delete course
+    ipcMain.handle('library:delete-course', async (_event, courseId) => {
+        return await LibraryService.deleteCourse(courseId);
     });
 }
 

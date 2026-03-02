@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, FileCode, Music, Disc } from 'lucide-react';
 import { Button } from './UI';
+import { useDialog } from '../context/DialogContext';
 
 // Generic Modal Component
 export const Modal = ({ isOpen, onClose, title, children, footer }) => {
@@ -116,6 +117,7 @@ export const DeleteModal = ({ data, onClose, onConfirm }) => {
 };
 
 export const ImportModal = ({ onClose, onConfirm, isEdit = false, initialData = null, defaultFolder = '' }) => {
+    const { showAlert } = useDialog();
     const [gpPath, setGpPath] = useState(null);
     const [audioBackingPath, setAudioBackingPath] = useState(null);
     const [audioOriginalPath, setAudioOriginalPath] = useState(null);
@@ -204,7 +206,7 @@ export const ImportModal = ({ onClose, onConfirm, isEdit = false, initialData = 
 
         // Validation: Key required only for Theory
         if (targetFolder === 'Theory' && !metadata.key) {
-            alert("Key is required for Theory items.");
+            showAlert("Укажите тональность для разделов Теории.", { icon: 'alert' });
             return;
         }
 

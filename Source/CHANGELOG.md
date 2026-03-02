@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-03-02
+### Added
+- **Course and Library Pack Imports**: Dedicated UI buttons for importing Courses and Library Packs directly from the app.
+- **Strict Course Format**: New `.gcourse` file extension for multi-day programs to differentiate them from `.gpack` library files.
+- **Automatic Course Routing**: The backend automatically detects course metadata and routes imported courses to their proper location.
+
+
 ## [1.2.0] - 2026-02-23
 ### Added
 - **REAPER Integration Migration**: Deep integration with REAPER for session management, tracking volume, and track colors.

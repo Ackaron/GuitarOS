@@ -1,5 +1,5 @@
 /**
- * LibraryService.js — Manages the GuitarOS file-system library.
+ * LibraryService.js — High-level coordinator for the GuitarOS file-system library.
  */
 'use strict';
 
@@ -8,21 +8,13 @@ const path = require('path');
 const crypto = require('crypto');
 const { ASSETS_PATH, USER_DATA_PATH } = require('../config/dataPath');
 
+const LibraryCache = require('./LibraryCache');
+const PackService = require('./PackService');
+
 // The Library lives in the writable USER_DATA_PATH
 const LIBRARY_PATH = path.join(USER_DATA_PATH, 'Library');
 // The bundled library (read-only) lives in ASSETS_PATH
 const BUNDLED_LIBRARY_PATH = path.join(ASSETS_PATH, 'Library');
-
-const STANDARD_KEYS = [
-    'C Major', 'G Major', 'D Major', 'A Major', 'E Major', 'B Major', 'F# Major', 'C# Major', 'F Major', 'Bb Major', 'Eb Major', 'Ab Major', 'Db Major', 'Gb Major', 'Cb Major',
-    'A Minor', 'E Minor', 'B Minor', 'F# Minor', 'C# Minor', 'G# Minor', 'D# Minor', 'A# Minor', 'D Minor', 'G Minor', 'C Minor', 'F Minor', 'Bb Minor', 'Eb Minor', 'Ab Minor'
-];
-
-const STANDARD_TAGS = [
-    'Alternate Picking', 'Economy Picking', 'Sweep Picking', 'Hybrid Picking',
-    'Legato', 'Tapping', 'Fingerstyle', 'Bending', 'Vibrato', 'Strumming',
-    'Rhythm', 'Chords', 'Scales', 'Arpeggios'
-];
 
 class LibraryService {
     constructor() {
@@ -31,10 +23,7 @@ class LibraryService {
 
     getLibraryPath() { return LIBRARY_PATH; }
 
-    /** 
-     * Ensure default folder structure exists.
-     * If the Library in AppData is empty, copy the bundled exercises from the app folder.
-     */
+    /** Ensure default folder structure exists. */
     async init() {
         try {
             await fs.ensureDir(LIBRARY_PATH);
@@ -124,70 +113,13 @@ class LibraryService {
         }
     }
 
-    /** Recursively scan for all sub-folders. */
+    /** Delegate caching operations to LibraryCache */
     async getAllFolders() {
-        const results = [];
-        const scan = async (currentRelative) => {
-            const absolutePath = path.join(LIBRARY_PATH, currentRelative);
-            if (!await fs.pathExists(absolutePath)) return;
-
-            const entries = await fs.readdir(absolutePath, { withFileTypes: true });
-
-            for (const entry of entries) {
-                if (!entry.isDirectory()) continue;
-                const relativePath = currentRelative
-                    ? path.join(currentRelative, entry.name)
-                    : entry.name;
-
-                const configPath = path.join(absolutePath, entry.name, 'config.json');
-                if (!await fs.pathExists(configPath)) {
-                    results.push(relativePath.replace(/\\/g, '/'));
-                    await scan(relativePath);
-                }
-            }
-        };
-
-        try {
-            await scan('');
-            return results.sort();
-        } catch (err) {
-            console.error('Failed to get recursive folders:', err);
-            return ['Etude', 'Songs', 'Technique', 'Theory'];
-        }
+        return await LibraryCache.getAllFolders(LIBRARY_PATH);
     }
 
-    /** Return a flat catalog of all Smart Items. */
     async getCatalog() {
-        const items = await this._getAllSmartItems();
-        const tags = new Set(STANDARD_TAGS);
-        const keys = new Set(STANDARD_KEYS);
-
-        const simplifiedItems = items.map(i => {
-            if (i.tags) i.tags.forEach(t => tags.add(t));
-            if (i.key) keys.add(i.key);
-            return {
-                id: i.id || i.path,
-                title: i.title || i.name,
-                path: i.path,
-                type: i.type,
-                tags: i.tags || [],
-                key: i.key,
-                bpm: i.bpm,
-                targetBPM: i.targetBPM,
-                originalBpm: i.originalBpm,
-                duration: i.duration,
-                category: i.category,
-                relPath: i.relPath,
-                fsName: i.fsName,
-                parent: i.path.includes('Etude') ? 'exercises' : i.path.includes('Songs') ? 'songs' : 'other'
-            };
-        });
-
-        return {
-            items: simplifiedItems,
-            tags: Array.from(tags).sort(),
-            keys: Array.from(keys).sort()
-        };
+        return await LibraryCache.getCatalog(LIBRARY_PATH);
     }
 
     /** Import a Guitar Pro file. */
@@ -233,7 +165,7 @@ class LibraryService {
                 targetBPM: Number(metadata.targetBPM) || null,
                 originalBpm: Number(metadata.bpm) || 120,
                 difficulty: Number(metadata.difficulty) || 1,
-                key: this._normalizeKey(metadata.key) || null,
+                key: LibraryCache.normalizeKey(metadata.key) || null,
                 tags: metadata.tags || [],
                 status: metadata.status || 'none',
                 files: { tab: gpFileName, backing: backingFileName, original: originalFileName },
@@ -296,22 +228,8 @@ class LibraryService {
         } catch (err) { return { success: false, error: err.message }; }
     }
 
-    async _getAllSmartItems() {
-        try {
-            if (!await fs.pathExists(LIBRARY_PATH)) return [];
-            const rootItems = await fs.readdir(LIBRARY_PATH, { withFileTypes: true });
-            const categories = rootItems.filter(d => d.isDirectory()).map(d => d.name);
-            const allItems = [];
-            for (const category of categories) {
-                await this._scanDeep(path.join(LIBRARY_PATH, category), category, [], allItems);
-            }
-            return allItems;
-        } catch (err) { return []; }
-    }
-
     /**
      * Smart Review Engine
-     * Fetches exercises practiced within `daysToLookBack` that resulted in a score below `scoreThreshold`.
      */
     async getReviewQueue(daysToLookBack = 2, scoreThreshold = 60) {
         try {
@@ -329,14 +247,12 @@ class LibraryService {
             db.data.exercises.forEach(ex => {
                 if (!ex.history || ex.history.length === 0) return;
 
-                // Sort history newest first
                 const sortedHistory = [...ex.history].sort((a, b) => new Date(b.date) - new Date(a.date));
                 const lastSession = sortedHistory[0];
                 const sessionDate = new Date(lastSession.date).getTime();
 
-                // Check if it happened recently and needs review
                 if (sessionDate >= cutoffTime) {
-                    const score = lastSession.score !== undefined ? lastSession.score : 100; // default to 100 if legacy to avoid false positives
+                    const score = lastSession.score !== undefined ? lastSession.score : 100;
                     if (score < scoreThreshold) {
                         reviewItems.push({
                             id: ex.id,
@@ -348,66 +264,123 @@ class LibraryService {
                 }
             });
 
-            // Sort by score ascending (worst first)
             return reviewItems.sort((a, b) => a.score - b.score);
-
         } catch (err) {
             console.error('Error fetching review queue:', err);
             return [];
         }
     }
 
-    async _scanDeep(currentPath, category, folderHierarchy, resultList) {
-        const items = await fs.readdir(currentPath, { withFileTypes: true });
-        for (const dirent of items) {
-            if (!dirent.isDirectory()) continue;
-            const itemPath = path.join(currentPath, dirent.name);
-            const configPath = path.join(itemPath, 'config.json');
-            if (await fs.pathExists(configPath)) {
-                try {
-                    const config = await fs.readJson(configPath);
+    /** Delegate pack operations to PackService */
+    async exportPack(folderRelPath, outputPath) {
+        return await PackService.exportPack(folderRelPath, outputPath, LIBRARY_PATH);
+    }
 
-                    // Normalize key
-                    if (config.key) config.key = this._normalizeKey(config.key);
+    async exportRoutine(payload, outputPath) {
+        return await PackService.exportRoutine(payload, outputPath);
+    }
 
-                    // Folder-based tagging
-                    const folderTags = [...folderHierarchy];
-                    const mergedTags = new Set([...(config.tags || []), ...folderTags]);
+    async importPack(filePath) {
+        return await PackService.importPack(filePath, LIBRARY_PATH);
+    }
 
-                    const itemData = {
-                        ...config,
-                        tags: Array.from(mergedTags),
-                        type: 'smart_item',
-                        path: itemPath,
-                        fsName: dirent.name,
-                        category,
-                        relPath: folderHierarchy.length > 0 ? `${category}/${folderHierarchy.join('/')}` : category
-                    };
-                    if (itemData.files) {
-                        for (const key of ['backing', 'original', 'tab']) {
-                            if (itemData.files[key] && !path.isAbsolute(itemData.files[key])) {
-                                itemData.files[key] = path.join(itemPath, itemData.files[key]);
-                            }
+    /** Returns all strict courses (routines) imported into Imports/Courses/ */
+    async getCourses() {
+        const coursesDir = path.join(LIBRARY_PATH, 'Imports', 'Courses');
+        if (!await fs.pathExists(coursesDir)) return [];
+
+        const courses = [];
+        const folders = await fs.readdir(coursesDir, { withFileTypes: true });
+
+        for (const f of folders) {
+            if (f.isDirectory()) {
+                const manifestPath = path.join(coursesDir, f.name, 'manifest.json');
+                if (await fs.pathExists(manifestPath)) {
+                    try {
+                        const manifest = await fs.readJson(manifestPath);
+                        if (manifest.type === 'routine' || manifest.type === 'multi_day_course') {
+                            const courseAbsPath = path.join(coursesDir, f.name);
+
+                            const db = require('./db');
+                            const userDB = db.getUserDB();
+                            await userDB.read();
+                            const progress = userDB.data.courseProgress?.[f.name] || { highestUnlockedDay: 1 };
+
+                            courses.push({
+                                id: f.name,
+                                name: manifest.packName || f.name,
+                                type: manifest.type,
+                                importedAt: manifest.exportedAt,
+                                highestUnlockedDay: progress.highestUnlockedDay,
+
+                                itemsCount: manifest.items?.length || 0,
+                                playlist: manifest.items ? manifest.items.map(item => ({
+                                    ...item,
+                                    path: courseAbsPath
+                                })) : [],
+
+                                days: manifest.days ? manifest.days.map(day => ({
+                                    ...day,
+                                    items: day.items.map(item => ({
+                                        ...item,
+                                        path: courseAbsPath
+                                    }))
+                                })) : [],
+
+                                folderPath: path.join('Imports', 'Courses', f.name)
+                            });
                         }
+                    } catch (e) {
+                        console.error('Failed to parse course manifest:', e);
                     }
-                    resultList.push(itemData);
-                } catch (e) { }
-            } else {
-                await this._scanDeep(itemPath, category, [...folderHierarchy, dirent.name], resultList);
+                }
             }
+        }
+        return courses;
+    }
+
+    async deleteCourse(courseId) {
+        try {
+            const courseDir = path.join(LIBRARY_PATH, 'Imports', 'Courses', courseId);
+            if (await fs.pathExists(courseDir)) {
+                await fs.remove(courseDir);
+
+                const db = require('./db');
+                const userDB = db.getUserDB();
+                if (userDB && userDB.data && userDB.data.courseProgress && userDB.data.courseProgress[courseId]) {
+                    delete userDB.data.courseProgress[courseId];
+                    await userDB.write();
+                }
+
+                return { success: true };
+            }
+            return { success: false, error: 'Course not found' };
+        } catch (err) {
+            console.error('Failed to delete course:', err);
+            return { success: false, error: err.message };
         }
     }
 
-    _normalizeKey(key) {
-        if (!key) return null;
-        const k = key.trim();
-        if (k.endsWith('m') && !k.toLowerCase().endsWith('am')) return `${k.slice(0, -1)} Minor`;
-        if (k.toLowerCase().endsWith('min')) return `${k.slice(0, -3).trim()} Minor`;
-        if (k.toLowerCase().includes('minor')) return `${k.split(' ')[0]} Minor`;
-        if (k.toLowerCase().endsWith('maj')) return `${k.slice(0, -3).trim()} Major`;
-        if (k.toLowerCase().includes('major')) return `${k.split(' ')[0]} Major`;
-        if (k.length <= 2) return `${k} Major`;
-        return k;
+    async updateCourseProgress(courseId, highestUnlockedDay) {
+        try {
+            const db = require('./db');
+            const userDB = db.getUserDB();
+            await userDB.read();
+
+            if (!userDB.data.courseProgress) {
+                userDB.data.courseProgress = {};
+            }
+
+            const currentProgress = userDB.data.courseProgress[courseId] || { highestUnlockedDay: 1 };
+            if (highestUnlockedDay > currentProgress.highestUnlockedDay) {
+                userDB.data.courseProgress[courseId] = { highestUnlockedDay };
+                await userDB.write();
+            }
+            return { success: true };
+        } catch (err) {
+            console.error('Failed to update course progress:', err);
+            return { success: false, error: err.message };
+        }
     }
 }
 

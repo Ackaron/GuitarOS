@@ -1,5 +1,6 @@
 import './globals.css';
 import { LanguageProvider } from '../context/LanguageContext';
+import { DialogProvider } from '../context/DialogContext';
 
 export const metadata = {
   title: 'GuitarOS',
@@ -10,10 +11,12 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <LanguageProvider>
-          {children}
-        </LanguageProvider>
+        <DialogProvider>
+          <LanguageProvider>
+            {children}
+          </LanguageProvider>
+        </DialogProvider>
       </body>
-    </html>
+    </html >
   )
 }

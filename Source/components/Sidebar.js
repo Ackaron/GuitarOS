@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Play, Library as LibIcon, Activity, Settings, ChevronLeft, LogOut } from 'lucide-react';
+import { LayoutDashboard, Play, Library as LibIcon, Activity, Settings, ChevronLeft, LogOut, GraduationCap, Wrench } from 'lucide-react';
 import useStore from '../store/useStore';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -73,6 +73,8 @@ const Sidebar = ({ activeView, onNavigate, isOpen, onToggle, onLogout }) => {
 
             <nav className="flex-1 px-4 space-y-2 py-4">
                 <SidebarItem icon={LayoutDashboard} label={t('sidebar.dashboard')} id="dashboard" />
+                <SidebarItem icon={GraduationCap} label="Курсы" id="courses" />
+                <SidebarItem icon={Wrench} label="Конструктор" id="builder" />
                 <SidebarItem icon={Play} label={t('sidebar.session')} id="session" />
                 <SidebarItem icon={LibIcon} label={t('sidebar.library')} id="library" />
                 <SidebarItem icon={Settings} label={t('sidebar.settings')} id="settings" />

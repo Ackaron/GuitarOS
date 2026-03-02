@@ -21,11 +21,11 @@ const defaultRegistry = {
     }
 };
 
-/** Default structure for a single user's profile. */
 const defaultUserData = {
     user: { name: '', totalCheckins: 0 },
     exercises: [], // Individual progress (BPM, history)
     history: [],
+    courseProgress: {}, // Multi-day course progress: { "courseId": { highestUnlockedDay: 1 } }
     pins: {
         technique: null,
         song: null,

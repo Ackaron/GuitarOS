@@ -20,7 +20,8 @@ const SessionView = ({
     onSetStepTimer,
     onReaperTransport,
     onUpdateTotalTime,
-    launchGuitarPro = true
+    launchGuitarPro = true,
+    isGuidedMode = false
 }) => {
     const [currentBpm, setCurrentBpm] = useState(0);
     const [bpmChanged, setBpmChanged] = useState(false);
@@ -200,7 +201,6 @@ const SessionView = ({
                     )}
                 </div>
 
-                {/* RIGHT: Playlist */}
                 <div className="col-span-12 lg:col-span-5 flex flex-col h-full max-h-[calc(100vh-100px)]">
                     <SessionPlaylist
                         routine={routine}
@@ -209,6 +209,7 @@ const SessionView = ({
                         onUpdateTotalTime={onUpdateTotalTime}
                         onLoadStep={onLoadStep}
                         onFinishWithFeedback={() => handleFeedbackTrigger(onFinishSession)}
+                        isGuidedMode={isGuidedMode}
                     />
                 </div>
             </div>

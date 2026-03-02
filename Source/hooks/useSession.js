@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useDialog } from '../context/DialogContext';
 
 export const useSession = (initialTotalMinutes = 60) => {
+    const { showAlert, showConfirm } = useDialog();
     const [viewMode, setViewMode] = useState('start');
     const [totalMinutes, setTotalMinutes] = useState(initialTotalMinutes);
     const [routine, setRoutine] = useState([]);
@@ -12,7 +14,8 @@ export const useSession = (initialTotalMinutes = 60) => {
             if (window.electronAPI) {
                 const prefsData = await window.electronAPI.invoke('prefs:get');
                 if (prefsData?.session?.isActive && prefsData.session.currentRoutine?.length > 0) {
-                    if (confirm("Resume previous session?")) {
+                    const confirmed = await showConfirm("Возобновить предыдущую сессию?", { icon: 'info' });
+                    if (confirmed) {
                         setRoutine(prefsData.session.currentRoutine);
                         setCurrentStepIndex(prefsData.session.currentIndex);
 
@@ -110,7 +113,7 @@ export const useSession = (initialTotalMinutes = 60) => {
 
                 return true;
             } else {
-                alert('No items found! Check your Library and Module settings.');
+                await showAlert('Упражнения не найдены! Проверьте библиотеку и настройки модулей.', { icon: 'error' });
                 return false;
             }
         }

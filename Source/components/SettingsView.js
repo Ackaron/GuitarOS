@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useDialog } from '../context/DialogContext';
 import { Globe, Monitor, Moon, Save, Zap, Music, ChevronDown, Settings } from 'lucide-react';
 import { Button } from './UI';
 
 export default function SettingsView() {
-    const { t, language, changeLanguage } = useLanguage();
+    const { t, language, setLanguage } = useLanguage();
+    const { showAlert, showConfirm } = useDialog();
     const [theme, setTheme] = useState('dark');
     const [prefs, setPrefs] = useState({
         general: {
@@ -52,11 +54,10 @@ export default function SettingsView() {
                 setPrefs(newPrefs);
                 await window.electronAPI.invoke('prefs:save', { general: { ...prefs.general, [key]: filePath } });
 
-                // Auto-configure REAPER web interface whenever the exe path changes
                 if (key === 'reaperPath') {
                     const res = await window.electronAPI.invoke('reaper:auto-config');
                     if (!res.success) {
-                        alert(`REAPER path saved, but auto-config failed: ${res.error}\nMake sure REAPER is installed at the selected path and try the "Configure" button manually.`);
+                        await showAlert(`REAPER путь сохранен, но авто-настройка не удалась: ${res.error}\nУбедитесь, что REAPER установлен по выбранному пути и попробуйте кнопку "Configure" вручную.`, { icon: 'error' });
                     }
                 }
             }
@@ -67,9 +68,9 @@ export default function SettingsView() {
         if (window.electronAPI) {
             const res = await window.electronAPI.invoke('reaper:auto-config');
             if (res.success) {
-                alert("Reaper configuration updated! Web Control (Port 8080) enabled.");
+                await showAlert("Конфигурация Reaper обновлена! Web Control (Порт 8080) включен.", { icon: 'success' });
             } else {
-                alert("Failed to configure Reaper: " + res.error);
+                await showAlert("Не удалось настроить Reaper: " + res.error, { icon: 'error' });
             }
         }
     };
@@ -78,9 +79,9 @@ export default function SettingsView() {
         if (window.electronAPI) {
             const res = await window.electronAPI.invoke('reaper:install-listener');
             if (res.success) {
-                alert(`✅ Lua script installed!\n\nPath: ${res.scriptPath}\n\nRestart REAPER to activate it.`);
+                await showAlert(`✅ Lua скрипт установлен!\n\nПуть: ${res.scriptPath}\n\nПерезапустите REAPER для его активации.`, { icon: 'success' });
             } else {
-                alert(`❌ Install failed: ${res.error}`);
+                await showAlert(`❌ Установка не удалась: ${res.error}`, { icon: 'error' });
             }
         }
     };

@@ -9,12 +9,18 @@ import ProgressView from './ProgressView';
 import ModuleConfig from './ModuleConfig';
 import SettingsView from './SettingsView';
 import LoginScreen from './LoginScreen';
+import CoursesView from './CoursesView';
+import CourseBuilder from './CourseBuilder';
 import { useLanguage } from '../context/LanguageContext';
 import { formatTime } from '../utils/formatTime';
 import { useSessionTimer } from '../hooks/useSessionTimer';
-import { useSession } from '../hooks/useSession'; export default function Dashboard() {
+import { useSession } from '../hooks/useSession';
+import { useDialog } from '../context/DialogContext';
+
+export default function Dashboard() {
     const { userName, init, setUserName, logout } = useStore();
     const { t } = useLanguage();
+    const { showAlert, showConfirm } = useDialog();
     const [activeView, setActiveView] = useState('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -63,6 +69,11 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
     const [dayFocus, setDayFocus] = useState('speed'); // speed, clarity, stability
     const [smartReview, setSmartReview] = useState(true); // Toggle for Smart Review Engine
 
+    const [courses, setCourses] = useState([]); // List of strict courses
+    const [isGuidedMode, setIsGuidedMode] = useState(false);
+    const [activeCourseId, setActiveCourseId] = useState(null);
+    const [activeCourseDayIndex, setActiveCourseDayIndex] = useState(null);
+
 
     const { stepTimer, setStepTimer, isTimerRunning, setIsTimerRunning, toggleTimer } = useSessionTimer(0);
     const [catalog, setCatalog] = useState({ items: [], tags: [], keys: [] });
@@ -84,6 +95,12 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
                         setModules(prefsData.routine.modules);
                     }
                     // active session is handled by useSession
+                }
+
+                // 3. Get Strict Courses
+                const loadedCourses = await window.electronAPI.invoke('fs:get-courses');
+                if (loadedCourses) {
+                    setCourses(loadedCourses);
                 }
             }
         };
@@ -122,16 +139,90 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
 
     // --- Actions ---
     const onGenerateRoutine = async () => {
+        setIsGuidedMode(false); // standard mode
         await generateRoutine(modules, setStepTimer, setIsTimerRunning, setActiveView, dayFocus, smartReview);
+    };
+
+    const handleLaunchCourse = (course, dayIndex = null) => {
+        setIsGuidedMode(true);
+        setActiveCourseId(course.id);
+
+        let playlistToLaunch = course.playlist;
+        if (dayIndex !== null && course.days) {
+            playlistToLaunch = course.days[dayIndex].items;
+            setActiveCourseDayIndex(dayIndex);
+        } else {
+            setActiveCourseDayIndex(null);
+        }
+
+        setRoutine(playlistToLaunch);
+
+        let totalTime = 0;
+        playlistToLaunch.forEach(step => {
+            totalTime += (step.duration / 60);
+        });
+        setTotalMinutes(Math.round(totalTime));
+
+        loadStep(0, playlistToLaunch, setStepTimer, setIsTimerRunning);
+        setActiveView('session');
+    };
+
+    const fetchCourses = async () => {
+        if (window.electronAPI) {
+            const updatedCourses = await window.electronAPI.invoke('fs:get-courses');
+            setCourses(updatedCourses);
+        }
+    };
+
+    const handleDeleteCourse = async (courseId) => {
+        const confirmed = await showConfirm('Вы уверены, что хотите удалить этот курс?');
+        if (!confirmed) return;
+
+        const res = await window.electronAPI.invoke('library:delete-course', courseId);
+        if (res && res.success) {
+            fetchCourses();
+            if (activeCourseId === courseId) {
+                setActiveCourseId(null);
+                setActiveCourseDayIndex(null);
+            }
+        } else {
+            await showAlert('Ошибка при удалении курса: ' + (res?.error || 'Неизвестная ошибка'), { icon: 'error' });
+        }
     };
 
     const handleNext = () => {
         if (currentStepIndex < routine.length - 1) {
             loadStep(currentStepIndex + 1, null, setStepTimer, setIsTimerRunning);
         } else {
-            finishSession(setActiveView);
+            handleFinishSession();
         }
     };
+
+    const handleFinishSession = async () => {
+        // If we just finished a day in a multi_day_course
+        if (isGuidedMode && activeCourseId && activeCourseDayIndex !== null) {
+            const course = courses.find(c => c.id === activeCourseId);
+            const currentDayNumber = activeCourseDayIndex + 1;
+
+            if (course && currentDayNumber === course.highestUnlockedDay) {
+                // Determine max days 
+                const maxDays = course.days?.length || 0;
+                if (currentDayNumber < maxDays) {
+                    const newHighest = course.highestUnlockedDay + 1;
+                    await window.electronAPI.invoke('library:update-course-progress', activeCourseId, newHighest);
+
+                    // Refetch courses silently to update UI
+                    const updatedCourses = await window.electronAPI.invoke('fs:get-courses');
+                    setCourses(updatedCourses);
+                }
+            }
+        }
+
+        finishSession(setActiveView);
+        setIsGuidedMode(false);
+        setActiveCourseId(null);
+        setActiveCourseDayIndex(null);
+    }
 
     const handlePrev = () => {
         if (currentStepIndex > 0) {
@@ -162,7 +253,7 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
                             <p className="text-sm font-medium text-gray-400 uppercase tracking-widest">{t('dashboard.subtitle')}</p>
                         </header>
 
-                        <div className="flex-1 relative">
+                        <div className="flex-1 relative space-y-8">
                             <ModuleConfig
                                 modules={modules}
                                 setModules={setModules}
@@ -179,6 +270,19 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
                     </div>
                 )}
 
+                {activeView === 'courses' && (
+                    <CoursesView
+                        courses={courses}
+                        onLaunchCourse={handleLaunchCourse}
+                        onDeleteCourse={handleDeleteCourse}
+                        onRefreshCourses={fetchCourses}
+                    />
+                )}
+
+                {activeView === 'builder' && (
+                    <CourseBuilder catalog={catalog} />
+                )}
+
                 {activeView === 'session' && (
                     <SessionView
                         routine={routine}
@@ -190,11 +294,12 @@ import { useSession } from '../hooks/useSession'; export default function Dashbo
                         onNext={handleNext}
                         onPrev={handlePrev}
                         onToggleTimer={toggleTimer}
-                        onFinishSession={() => finishSession(setActiveView)}
+                        onFinishSession={handleFinishSession}
                         onSetStepTimer={setStepTimer}
                         onReaperTransport={reaperTransport}
                         onUpdateTotalTime={(val) => handleUpdateTotalTime(val, setStepTimer, isTimerRunning)}
                         launchGuitarPro={prefs?.general?.launchGuitarPro !== false}
+                        isGuidedMode={isGuidedMode}
                     />
                 )}
 

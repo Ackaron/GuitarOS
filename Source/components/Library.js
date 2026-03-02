@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, Plus, ArrowLeft, Search, X, Pencil } from 'lucide-react';
+import { Plus, ArrowLeft, Search, Download } from 'lucide-react';
 import { Button } from './UI';
 import { useLanguage } from '../context/LanguageContext';
+import { useDialog } from '../context/DialogContext';
 import { CreateFolderModal, RenameModal, ImportModal, DeleteModal } from './LibraryModals';
+import { FolderGridItem, FileGridItem } from './Library/LibraryGridItems';
 
 export default function Library({ onBack }) {
     const { t } = useLanguage();
+    const { showAlert, showConfirm } = useDialog();
     const [history, setHistory] = useState(['/']);
     const currentPath = history[history.length - 1];
 
@@ -14,16 +17,12 @@ export default function Library({ onBack }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Modal State
-    // type: 'create', 'delete', 'rename', 'import', 'edit'
+    // Modal State: type: 'create', 'delete', 'rename', 'import', 'edit'
     const [modal, setModal] = useState({ type: null, data: null });
 
     useEffect(() => {
-        if (currentPath === '/') {
-            loadLibrary();
-        } else {
-            loadFolder(currentPath);
-        }
+        if (currentPath === '/') loadLibrary();
+        else loadFolder(currentPath);
     }, [currentPath]);
 
     const loadLibrary = async () => {
@@ -32,11 +31,8 @@ export default function Library({ onBack }) {
             try {
                 const data = await window.electronAPI.invoke('fs:get-library');
                 setLibraryData(data);
-            } catch (e) {
-                console.error("Failed to load library", e);
-            } finally {
-                setIsLoading(false);
-            }
+            } catch (e) { console.error("Failed to load library", e); }
+            finally { setIsLoading(false); }
         }
     };
 
@@ -46,22 +42,15 @@ export default function Library({ onBack }) {
             try {
                 const items = await window.electronAPI.invoke('fs:get-folder', folderId);
                 setCurrentItems(items);
-            } catch (e) {
-                console.error("Failed to load folder", e);
-            } finally {
-                setIsLoading(false);
-            }
+            } catch (e) { console.error("Failed to load folder", e); }
+            finally { setIsLoading(false); }
         }
     };
 
-    const openFolder = (folderId) => {
-        setHistory(prev => [...prev, folderId]);
-    };
+    const openFolder = (folderId) => setHistory(prev => [...prev, folderId]);
 
     const handleBack = () => {
-        if (history.length > 1) {
-            setHistory(prev => prev.slice(0, -1));
-        }
+        if (history.length > 1) setHistory(prev => prev.slice(0, -1));
     };
 
     const refresh = () => {
@@ -69,15 +58,13 @@ export default function Library({ onBack }) {
         else loadFolder(currentPath);
     };
 
+    // --- Actions ---
+
     const confirmCreateFolder = async (name) => {
         if (name && window.electronAPI) {
             const res = await window.electronAPI.invoke('fs:create-folder', { name, parent: currentPath === '/' ? null : currentPath });
-            if (res.success) {
-                setModal({ type: null, data: null });
-                refresh();
-            } else {
-                alert(res.error);
-            }
+            if (res.success) { setModal({ type: null, data: null }); refresh(); }
+            else await showAlert(res.error, { icon: 'error' });
         }
     };
 
@@ -85,12 +72,8 @@ export default function Library({ onBack }) {
         const { id, parent } = modal.data;
         if (window.electronAPI) {
             const res = await window.electronAPI.invoke('fs:delete-item', { id, parent });
-            if (res.success) {
-                setModal({ type: null, data: null });
-                refresh();
-            } else {
-                alert(res.error);
-            }
+            if (res.success) { setModal({ type: null, data: null }); refresh(); }
+            else await showAlert(res.error, { icon: 'error' });
         }
     };
 
@@ -98,89 +81,81 @@ export default function Library({ onBack }) {
         const { id, parent } = modal.data;
         if (window.electronAPI) {
             const res = await window.electronAPI.invoke('fs:rename-item', { id, newName, parent });
-            if (res.success) {
-                setModal({ type: null, data: null });
-                refresh();
-            } else {
-                alert(res.error);
-            }
+            if (res.success) { setModal({ type: null, data: null }); refresh(); }
+            else await showAlert(res.error, { icon: 'error' });
         }
     };
 
     const confirmImport = async (importData) => {
         if (window.electronAPI) {
-            // Priority: User Selected > Current Path (if inside subfolder) > Default
-            let target = 'Exercises'; // Default
+            let target = 'Exercises';
             if (importData.targetFolder) target = importData.targetFolder;
             else if (currentPath !== '/') target = currentPath;
 
             const res = await window.electronAPI.invoke('fs:import-exercise', {
-                filePaths: {
-                    gp: importData.gpPath,
-                    audioBacking: importData.audioBackingPath,
-                    audioOriginal: importData.audioOriginalPath
-                },
+                filePaths: { gp: importData.gpPath, audioBacking: importData.audioBackingPath, audioOriginal: importData.audioOriginalPath },
                 folder: target,
                 metadata: importData.metadata
             });
 
-            if (res.success) {
-                setModal({ type: null, data: null });
-                refresh();
-            } else {
-                alert(res.error);
-            }
+            if (res.success) { setModal({ type: null, data: null }); refresh(); }
+            else await showAlert(res.error, { icon: 'error' });
         }
     }
 
     const confirmEdit = async (editData) => {
         const { id, parent, fsName } = modal.data;
-
         if (window.electronAPI) {
             const res = await window.electronAPI.invoke('fs:update-metadata', {
-                id: fsName, // Use fsName for directory lookup 
+                id: fsName,
                 metadata: editData.metadata,
                 parent,
-                targetFolder: editData.targetFolder, // New
-                newFiles: { // New
-                    audioBacking: editData.audioBackingPath,
-                    audioOriginal: editData.audioOriginalPath
-                }
+                targetFolder: editData.targetFolder,
+                newFiles: { audioBacking: editData.audioBackingPath, audioOriginal: editData.audioOriginalPath }
             });
 
-            if (res.success) {
-                setModal({ type: null, data: null });
-                refresh();
-            } else {
-                alert(res.error);
+            if (res.success) { setModal({ type: null, data: null }); refresh(); }
+            else await showAlert(res.error, { icon: 'error' });
+        }
+    };
+
+    const handleFileClick = async (file) => {
+        if (typeof window !== 'undefined' && window.electronAPI) {
+            try {
+                const res = await window.electronAPI.invoke('reaper:load-exercise', file);
+                if (!res.success) await showAlert('Failed to start session: ' + res.error, { icon: 'error' });
+            } catch (e) {
+                console.error("IPC Error:", e);
+                await showAlert('Connection to backend failed', { icon: 'error' });
             }
         }
     };
 
+    const handleExportPack = async (folderPathToExport) => {
+        if (!window.electronAPI) return;
 
-    const handleFileClick = async (file) => {
-        console.log("Starting Practice Session:", file);
-        if (typeof window !== 'undefined' && window.electronAPI) {
-            try {
-                // Trigger Automation
-                const res = await window.electronAPI.invoke('reaper:load-exercise', file);
+        // Ensure folderPathToExport is cleanly mapped to empty string for root
+        const pathArg = folderPathToExport === '/' ? '' : folderPathToExport;
 
-                if (res.success) {
-                    console.log("Session started successfully");
-                    // Future: Switch to Focus Mode
-                } else {
-                    alert('Failed to start session: ' + res.error);
-                }
-            } catch (e) {
-                console.error("IPC Error:", e);
-                alert('Connection to backend failed');
-            }
+        const res = await window.electronAPI.invoke('library:export-pack', pathArg);
+        if (res && res.success) await showAlert(`Успешно экспортировано:\n${res.path}`, { icon: 'success' });
+        else if (res && res.error !== 'User canceled') await showAlert(`Ошибка экспорта: ${res.error}`, { icon: 'error' });
+    };
+
+    const handleImportPack = async () => {
+        if (!window.electronAPI) return;
+
+        const res = await window.electronAPI.invoke('library:import-pack');
+        if (res && res.success) {
+            await showAlert(`Успешно импортировано:\n${res.folder}`, { icon: 'success' });
+            refresh();
+        } else if (res && res.error !== 'User canceled') {
+            await showAlert(`Ошибка импорта: ${res.error}`, { icon: 'error' });
         }
     };
 
     const isRoot = currentPath === '/';
 
-    // Client-side search filter — matches title, name, and key (Theory tonality search)
     const filterItems = (items) => {
         if (!searchQuery.trim()) return items;
         const q = searchQuery.toLowerCase();
@@ -196,7 +171,6 @@ export default function Library({ onBack }) {
 
     return (
         <div className="h-full flex flex-col pt-2 relative">
-            {/* Top Bar */}
             <div className="flex justify-between items-center mb-10">
                 <div className="flex items-center gap-4">
                     {!isRoot && (
@@ -217,181 +191,78 @@ export default function Library({ onBack }) {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    <Button onClick={handleImportPack} className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/5 flex items-center gap-2">
+                        <Download size={16} className="rotate-180" /> Импорт Пака
+                    </Button>
+                    <Button onClick={() => handleExportPack(currentPath)} className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/5 flex items-center gap-2">
+                        <Download size={16} /> {isRoot ? 'Полный Бэкап' : 'Экспорт'}
+                    </Button>
                     <Button onClick={() => setModal({ type: 'import' })} className="bg-red-600 hover:bg-red-700 text-white border-none flex items-center gap-2">
                         <Plus size={16} /> {t('library.import_gp')}
                     </Button>
                 </div>
             </div>
 
-            {/* Content */}
             {isLoading ? (
                 <div className="text-gray-500 text-center mt-20">Loading Library...</div>
             ) : (
                 <div className="grid grid-cols-4 gap-6 animate-in fade-in duration-300">
                     {/* Folders (Root) */}
                     {isRoot && visibleLibraryData.map(folder => (
-                        <div key={folder.id}
+                        <FolderGridItem
+                            key={folder.id}
+                            folder={folder}
                             onClick={() => openFolder(folder.id)}
-                            className="relative aspect-[4/3] bg-white/[0.02] rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.04] transition-all group"
-                        >
-                            <div
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setModal({ type: 'delete', data: { id: folder.name, parent: null, name: folder.name } });
-                                }}
-                                className="absolute top-2 right-2 p-2 hover:bg-red-500/20 rounded-full text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all z-20"
-                                title="Delete Folder"
-                            >
-                                <X size={16} />
-                            </div>
-
-                            <div
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setModal({ type: 'rename', data: { id: folder.name, parent: null, name: folder.name } });
-                                }}
-                                className="absolute top-2 right-9 p-2 hover:bg-white/10 rounded-full text-gray-600 hover:text-white opacity-0 group-hover:opacity-100 transition-all z-20"
-                                title="Rename Folder"
-                            >
-                                <Pencil size={16} />
-                            </div>
-
-                            <Folder size={64} className="text-gray-200 fill-gray-200/10 mb-3 group-hover:text-white transition-colors" />
-                            <span className="text-gray-300 font-medium tracking-wider group-hover:text-white text-sm">{folder.name}</span>
-                            <span className="text-xs text-gray-600 mt-1">{folder.itemCount} items</span>
-                        </div>
+                            onDeleteClick={(f) => setModal({ type: 'delete', data: { id: f.name, parent: null, name: f.name } })}
+                            onRenameClick={(f) => setModal({ type: 'rename', data: { id: f.name, parent: null, name: f.name } })}
+                        />
                     ))}
-
-                    {/* New Folder Button */}
-                    <div
-                        onClick={() => setModal({ type: 'create' })}
-                        className="aspect-[4/3] bg-white/[0.01] rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.03] transition-all group"
-                    >
-                        <div className="w-14 h-14 rounded-full bg-white/[0.05] flex items-center justify-center mb-3 group-hover:bg-white/10 transition-colors">
-                            <Plus size={32} className="text-white opacity-50 group-hover:opacity-100" />
-                        </div>
-                        <span className="text-gray-400 text-sm">{t('library.create_folder').toUpperCase()}</span>
-                    </div>
 
                     {/* Items & Subfolders */}
                     {!isRoot && visibleCurrentItems.map(item => (
                         item.type === 'folder' ? (
-                            <div key={item.id}
-                                onClick={() => openFolder(currentPath + '/' + item.name)}
-                                className="relative aspect-[4/3] bg-white/[0.02] rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.04] transition-all group"
-                            >
-                                <div
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setModal({ type: 'delete', data: { id: item.fsName || item.name, parent: currentPath, name: item.title || item.name } });
-                                    }}
-                                    className="absolute top-2 right-2 p-2 hover:bg-red-500/20 rounded-full text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all z-20"
-                                    title="Delete Folder"
-                                >
-                                    <X size={16} />
-                                </div>
-                                <Folder size={48} className="text-gray-400 fill-gray-400/10 mb-2 group-hover:text-white transition-colors" />
-                                <span className="text-gray-300 font-medium group-hover:text-white text-xs text-center px-2">{item.name}</span>
-                            </div>
+                            <FolderGridItem
+                                key={item.id}
+                                folder={item}
+                                onClick={() => openFolder(`${currentPath}/${item.name}`)}
+                                onDeleteClick={(f) => setModal({ type: 'delete', data: { id: f.fsName || f.name, parent: currentPath, name: f.title || f.name } })}
+                                onRenameClick={(f) => setModal({ type: 'rename', data: { id: f.fsName || f.name, parent: currentPath, name: f.title || f.name } })}
+                            />
                         ) : (
-                            <div key={item.id}
+                            <FileGridItem
+                                key={item.id}
+                                item={item}
                                 onClick={() => handleFileClick(item)}
-                                className="relative min-w-[200px] h-[100px] rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] p-4 flex flex-col justify-between cursor-pointer transition-all group overflow-hidden"
-                                title={item.fsName}
-                            >
-                                <div
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setModal({ type: 'delete', data: { id: item.fsName || item.name, parent: currentPath, name: item.title || item.name } });
-                                    }}
-                                    className="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                                    title="Delete Item"
-                                >
-                                    <X size={16} />
-                                </div>
-
-                                <div
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (item.type === 'smart_item') {
-                                            setModal({ type: 'edit', data: { fsName: item.fsName, parent: currentPath, item: item } });
-                                        } else {
-                                            setModal({ type: 'rename', data: { id: item.fsName || item.name, parent: currentPath, name: item.title || item.name } });
-                                        }
-                                    }}
-                                    className="absolute top-2 right-8 p-1 text-gray-600 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                                    title="Edit Metadata"
-                                >
-                                    <Pencil size={16} />
-                                </div>
-
-                                <div className={`absolute top-0 left-0 w-1 h-full transition-all duration-300 ${item.status === 'weekly' ? 'bg-green-500' : item.status === 'monthly' ? 'bg-blue-500' : 'bg-red-500/0 group-hover:bg-red-500'}`}></div>
-                                <div className="font-medium text-white text-sm relative z-10 truncate pr-16">{item.title || item.name}</div>
-
-                                {/* Badges */}
-                                <div className="mt-2 flex gap-1 flex-wrap">
-                                    {item.status === 'weekly' && <span className="text-[10px] bg-green-500/20 text-green-400 px-1 rounded">Weekly</span>}
-                                    {item.status === 'monthly' && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1 rounded">Monthly</span>}
-                                    {item.tags && item.tags.slice(0, 2).map(tag => (
-                                        <span key={tag} className="text-[10px] bg-white/10 text-gray-300 px-1 rounded">{tag}</span>
-                                    ))}
-                                </div>
-
-                                <div className="text-xs text-gray-500 font-mono relative z-10 flex justify-between items-end mt-auto">
-                                    <span>{item.bpm || '?'} BPM</span>
-                                    {item.key && <span className="text-[#FF5555] bg-[#FF5555]/10 px-1 rounded">{item.key}</span>}
-                                </div>
-                            </div>
+                                onDeleteClick={(i) => setModal({ type: 'delete', data: { id: i.fsName || i.name, parent: currentPath, name: i.title || i.name } })}
+                                onEditClick={(i) => {
+                                    if (i.type === 'smart_item') setModal({ type: 'edit', data: { fsName: i.fsName, parent: currentPath, item: i } });
+                                    else setModal({ type: 'rename', data: { id: i.fsName || i.name, parent: currentPath, name: i.title || i.name } });
+                                }}
+                            />
                         )
                     ))}
 
-                    {!isRoot && visibleCurrentItems.length === 0 && (
-                        <div className="col-span-4 text-center text-gray-500 py-10">
-                            Folder is empty. Import a file to get started.
+                    {/* Create Folder Button (Always at the end) */}
+                    <div
+                        onClick={() => setModal({ type: 'create' })}
+                        className={`bg-white/[0.01] rounded-2xl flex items-center justify-center cursor-pointer hover:bg-white/[0.03] transition-all group ${isRoot ? 'aspect-[4/3] flex-col' : 'min-w-[200px] h-[100px] flex-row gap-3'
+                            }`}
+                    >
+                        <div className={`rounded-full bg-white/[0.05] flex items-center justify-center group-hover:bg-white/10 transition-colors ${isRoot ? 'w-14 h-14 mb-3' : 'w-10 h-10'
+                            }`}>
+                            <Plus size={isRoot ? 32 : 24} className="text-white opacity-50 group-hover:opacity-100" />
                         </div>
-                    )}
+                        <span className="text-gray-400 text-sm font-medium">{t('library.create_folder').toUpperCase()}</span>
+                    </div>
                 </div>
             )}
 
             {/* Modals */}
-            {modal.type === 'create' && (
-                <CreateFolderModal
-                    onClose={() => setModal({ type: null })}
-                    onConfirm={confirmCreateFolder}
-                />
-            )}
-            {modal.type === 'delete' && (
-                <DeleteModal
-                    data={modal.data}
-                    onClose={() => setModal({ type: null })}
-                    onConfirm={confirmDelete}
-                />
-            )}
-            {modal.type === 'rename' && (
-                <RenameModal
-                    data={modal.data}
-                    onClose={() => setModal({ type: null })}
-                    onConfirm={confirmRename}
-                />
-            )}
-            {modal.type === 'import' && (
-                <ImportModal
-                    defaultFolder={currentPath}
-                    onClose={() => setModal({ type: null })}
-                    onConfirm={confirmImport}
-                />
-            )}
-            {modal.type === 'edit' && (
-                <ImportModal
-                    isEdit={true}
-                    defaultFolder={currentPath}
-                    initialData={modal.data.item}
-                    onClose={() => setModal({ type: null })}
-                    onConfirm={confirmEdit}
-                />
-            )}
+            {modal.type === 'create' && <CreateFolderModal onClose={() => setModal({ type: null })} onConfirm={confirmCreateFolder} />}
+            {modal.type === 'delete' && <DeleteModal data={modal.data} onClose={() => setModal({ type: null })} onConfirm={confirmDelete} />}
+            {modal.type === 'rename' && <RenameModal data={modal.data} onClose={() => setModal({ type: null })} onConfirm={confirmRename} />}
+            {modal.type === 'import' && <ImportModal defaultFolder={currentPath} onClose={() => setModal({ type: null })} onConfirm={confirmImport} />}
+            {modal.type === 'edit' && <ImportModal isEdit={true} defaultFolder={currentPath} initialData={modal.data.item} onClose={() => setModal({ type: null })} onConfirm={confirmEdit} />}
         </div>
     );
 }
-
-
