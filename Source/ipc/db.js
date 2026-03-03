@@ -114,15 +114,33 @@ function registerDbHandlers() {
 
         // Attach active session ID if present
         const prefs = await UserPreferencesService.getPreferences();
+        let targetSessionId = null;
         if (prefs.session && prefs.session.isActive && prefs.session.sessionId) {
-            historyEntry.sessionId = prefs.session.sessionId;
+            targetSessionId = prefs.session.sessionId;
+            historyEntry.sessionId = targetSessionId;
         }
 
         if (confidence) {
             historyEntry.confidence = confidence;
         }
 
-        item.history.push(historyEntry);
+        // --- MERGE LOGIC ---
+        // If we already have a record for this item in this SPECIFIC session, update it
+        const existingEntryIndex = targetSessionId
+            ? item.history.findIndex(h => h.sessionId === targetSessionId)
+            : -1;
+
+        if (existingEntryIndex !== -1) {
+            console.log('ipc/db — Updating existing session entry for item:', id);
+            item.history[existingEntryIndex] = {
+                ...item.history[existingEntryIndex],
+                ...historyEntry,
+                // Ensure date stays as the first interaction or update to latest? 
+                // Updating to latest is usually better for "lastPlayed" logic
+            };
+        } else {
+            item.history.push(historyEntry);
+        }
 
         // Update tracked BPM
         item.bpm = newBpm;

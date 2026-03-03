@@ -29,6 +29,14 @@ export default function Dashboard() {
     }, []);
 
     const handleNav = (id) => {
+        if (id === 'session') {
+            if (routine.length > 0) {
+                setActiveView('session');
+            } else {
+                showAlert('Нет активной сессии!');
+            }
+            return;
+        }
         setActiveView(id);
     };
 
@@ -55,6 +63,7 @@ export default function Dashboard() {
         handleUpdateTotalTime,
         generateRoutine,
         loadStep,
+        updateRoutineItem,
         finishSession,
         reaperTransport,
         currentItem
@@ -78,6 +87,7 @@ export default function Dashboard() {
     const { stepTimer, setStepTimer, isTimerRunning, setIsTimerRunning, toggleTimer } = useSessionTimer(0);
     const [catalog, setCatalog] = useState({ items: [], tags: [], keys: [] });
     const [prefs, setPrefs] = useState(null);
+    const [sessionBpm, setSessionBpm] = useState(0);
 
     // Initial Data Load
     useEffect(() => {
@@ -191,8 +201,15 @@ export default function Dashboard() {
     };
 
     const handleNext = () => {
+        // Save current progress before switching
+        updateRoutineItem(currentStepIndex, {
+            sessionRemainingTime: stepTimer,
+            sessionBpm: sessionBpm || currentItem?.sessionBpm
+        });
+
         if (currentStepIndex < routine.length - 1) {
             loadStep(currentStepIndex + 1, null, setStepTimer, setIsTimerRunning);
+            setSessionBpm(0); // Reset for next item
         } else {
             handleFinishSession();
         }
@@ -222,11 +239,18 @@ export default function Dashboard() {
         setIsGuidedMode(false);
         setActiveCourseId(null);
         setActiveCourseDayIndex(null);
-    }
+    };
 
     const handlePrev = () => {
+        // Save current progress before switching
+        updateRoutineItem(currentStepIndex, {
+            sessionRemainingTime: stepTimer,
+            sessionBpm: sessionBpm || currentItem?.sessionBpm
+        });
+
         if (currentStepIndex > 0) {
             loadStep(currentStepIndex - 1, null, setStepTimer, setIsTimerRunning);
+            setSessionBpm(0); // Reset for next item
         }
     };
 
@@ -276,11 +300,8 @@ export default function Dashboard() {
                         onLaunchCourse={handleLaunchCourse}
                         onDeleteCourse={handleDeleteCourse}
                         onRefreshCourses={fetchCourses}
+                        catalog={catalog}
                     />
-                )}
-
-                {activeView === 'builder' && (
-                    <CourseBuilder catalog={catalog} />
                 )}
 
                 {activeView === 'session' && (
@@ -290,7 +311,15 @@ export default function Dashboard() {
                         stepTimer={stepTimer}
                         isTimerRunning={isTimerRunning}
                         totalMinutes={totalMinutes}
-                        onLoadStep={(idx) => loadStep(idx, null, setStepTimer, setIsTimerRunning)}
+                        onLoadStep={(idx) => {
+                            // Save current before jumping
+                            updateRoutineItem(currentStepIndex, {
+                                sessionRemainingTime: stepTimer,
+                                sessionBpm: sessionBpm || currentItem?.sessionBpm
+                            });
+                            loadStep(idx, null, setStepTimer, setIsTimerRunning);
+                            setSessionBpm(0);
+                        }}
                         onNext={handleNext}
                         onPrev={handlePrev}
                         onToggleTimer={toggleTimer}
@@ -298,6 +327,7 @@ export default function Dashboard() {
                         onSetStepTimer={setStepTimer}
                         onReaperTransport={reaperTransport}
                         onUpdateTotalTime={(val) => handleUpdateTotalTime(val, setStepTimer, isTimerRunning)}
+                        onBpmChange={setSessionBpm}
                         launchGuitarPro={prefs?.general?.launchGuitarPro !== false}
                         isGuidedMode={isGuidedMode}
                     />

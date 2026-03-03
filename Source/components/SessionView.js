@@ -20,6 +20,7 @@ const SessionView = ({
     onSetStepTimer,
     onReaperTransport,
     onUpdateTotalTime,
+    onBpmChange,
     launchGuitarPro = true,
     isGuidedMode = false
 }) => {
@@ -36,12 +37,11 @@ const SessionView = ({
 
     useEffect(() => {
         if (currentItem) {
-            // REAPER always starts with original (Identity)
-            // Fallback to 120 only if everything is missing
-            const startBpm = currentItem.originalBpm || currentItem.bpm || 120;
+            // Priority: sessionBpm (current practice) -> originalBpm -> bpm -> 120
+            const startBpm = currentItem.sessionBpm || currentItem.originalBpm || currentItem.bpm || 120;
 
             setCurrentBpm(startBpm);
-            setBpmChanged(false);
+            setBpmChanged(!!currentItem.sessionBpm);
         }
     }, [currentItem]); // Re-run when step changes
 
@@ -49,6 +49,8 @@ const SessionView = ({
         const newBpm = absolute ? delta : Math.max(40, Math.min(300, currentBpm + delta));
         setCurrentBpm(newBpm);
         setBpmChanged(true);
+
+        if (onBpmChange) onBpmChange(newBpm);
 
         // Send to Reaper immediately
         if (window.electronAPI) {

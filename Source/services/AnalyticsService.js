@@ -335,7 +335,13 @@ class AnalyticsService {
         await db.read();
 
         if (db.data.user) db.data.user.totalCheckins = 0;
-        (db.data.exercises || []).forEach(ex => { ex.history = []; });
+
+        // Wipe all exercise progress and history
+        db.data.exercises = [];
+        db.data.history = [];
+
+        // Reset course progress
+        db.data.courseProgress = {};
 
         await db.write();
         return { success: true };

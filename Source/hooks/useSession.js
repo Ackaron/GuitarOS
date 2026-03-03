@@ -125,17 +125,36 @@ export const useSession = (initialTotalMinutes = 60) => {
         return false;
     }, [totalMinutes]);
 
+    const updateRoutineItem = useCallback((index, updates) => {
+        setRoutine(prev => {
+            const next = [...prev];
+            if (next[index]) {
+                next[index] = { ...next[index], ...updates };
+            }
+            return next;
+        });
+    }, []);
+
     const loadStep = useCallback(async (index, specificRoutine = null, setStepTimer = null, setIsTimerRunning = null) => {
         const currentRoutine = specificRoutine || routine;
         if (index >= 0 && index < currentRoutine.length) {
             setCurrentStepIndex(index);
             const item = currentRoutine[index];
 
-            if (setStepTimer) setStepTimer(item.duration || 300);
+            // Use session persistence if available
+            const savedTimer = item.sessionRemainingTime !== undefined ? item.sessionRemainingTime : (item.duration || 300);
+
+            if (setStepTimer) setStepTimer(savedTimer);
             if (setIsTimerRunning) setIsTimerRunning(false);
 
             if (window.electronAPI) {
-                await window.electronAPI.invoke('reaper:load-exercise', item);
+                // If we have a saved BPM for this session, use it
+                if (item.sessionBpm) {
+                    await window.electronAPI.invoke('reaper:load-exercise', { ...item, bpm: item.sessionBpm });
+                } else {
+                    await window.electronAPI.invoke('reaper:load-exercise', item);
+                }
+
                 await window.electronAPI.invoke('prefs:update-session', {
                     isActive: true,
                     currentRoutine,
@@ -173,6 +192,7 @@ export const useSession = (initialTotalMinutes = 60) => {
         handleUpdateTotalTime,
         generateRoutine,
         loadStep,
+        updateRoutineItem,
         finishSession,
         reaperTransport,
         currentItem: routine[currentStepIndex] || null

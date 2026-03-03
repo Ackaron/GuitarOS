@@ -6,7 +6,7 @@ import CourseDaysSidebar from './CourseBuilder/CourseDaysSidebar';
 import CourseTimeline from './CourseBuilder/CourseTimeline';
 import CourseLibraryPanel from './CourseBuilder/CourseLibraryPanel';
 
-const CourseBuilder = ({ catalog }) => {
+const CourseBuilder = ({ catalog, isSubView = false }) => {
     const { showAlert } = useDialog();
     const [packName, setPackName] = useState('Новый Мульти-Курс');
     const [author, setAuthor] = useState('GuitarOS Author');
@@ -67,16 +67,26 @@ const CourseBuilder = ({ catalog }) => {
     };
 
     return (
-        <div className="w-full max-w-[1400px] mx-auto p-8 lg:p-12 animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10 h-full flex flex-col">
-            <header className="mb-8 border-b border-white/[0.05] pb-6 flex justify-between items-end shrink-0">
-                <div>
-                    <h1 className="text-4xl font-normal text-white mb-2 tracking-tight">Конструктор</h1>
-                    <p className="text-sm font-medium text-gray-400 uppercase tracking-widest">Multi-Day Course Builder</p>
+        <div className={`w-full max-w-[1400px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10 h-full flex flex-col ${isSubView ? 'p-0' : 'p-8 lg:p-12'}`}>
+            {!isSubView && (
+                <header className="mb-8 border-b border-white/[0.05] pb-6 flex justify-between items-end shrink-0">
+                    <div>
+                        <h1 className="text-4xl font-normal text-white mb-2 tracking-tight">Конструктор</h1>
+                        <p className="text-sm font-medium text-gray-400 uppercase tracking-widest">Multi-Day Course Builder</p>
+                    </div>
+                    <button onClick={handleExportCourse} className="bg-[#E63946] hover:bg-red-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors">
+                        <Download size={18} /> Скомпилировать .gpack
+                    </button>
+                </header>
+            )}
+
+            {isSubView && (
+                <div className="absolute top-[-92px] right-0 z-[60]">
+                    <button onClick={handleExportCourse} className="bg-[#E63946] hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all shadow-lg shadow-red-500/10 text-sm">
+                        <Download size={16} /> Скомпилировать
+                    </button>
                 </div>
-                <button onClick={handleExportCourse} className="bg-[#E63946] hover:bg-red-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors">
-                    <Download size={18} /> Скомпилировать .gpack
-                </button>
-            </header>
+            )}
 
             <div className="grid grid-cols-12 gap-8 flex-1 min-h-0">
                 <div className="col-span-12 lg:col-span-3 min-h-0">

@@ -47,6 +47,11 @@ function registerAnalyticsHandlers() {
     ipcMain.handle('analytics:clear-history', async () => {
         return await AnalyticsService.clearHistory();
     });
+
+    // Frontend alias for clearing stats
+    ipcMain.handle('fs:reset-stats', async () => {
+        return await AnalyticsService.clearHistory();
+    });
 }
 
 module.exports = { registerAnalyticsHandlers };

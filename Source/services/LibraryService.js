@@ -29,7 +29,7 @@ class LibraryService {
             await fs.ensureDir(LIBRARY_PATH);
 
             // 1. Sync bundled assets (Non-destructive merge)
-            if (await fs.pathExists(BUNDLED_LIBRARY_PATH)) {
+            if (await fs.pathExists(BUNDLED_LIBRARY_PATH) && BUNDLED_LIBRARY_PATH !== LIBRARY_PATH) {
                 console.log('LibraryService — Syncing bundled assets...');
                 // overwrite: false ensures we only add new files, never replace user edits
                 await fs.copy(BUNDLED_LIBRARY_PATH, LIBRARY_PATH, { overwrite: false });

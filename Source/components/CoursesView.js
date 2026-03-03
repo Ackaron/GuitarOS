@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Lock, Play, ChevronLeft, Trash2, Download } from 'lucide-react';
+import { Lock, Play, ChevronLeft, Trash2, Download, Wrench, List } from 'lucide-react';
 import { useDialog } from '../context/DialogContext';
+import CourseBuilder from './CourseBuilder';
 
-const CoursesView = ({ courses, onLaunchCourse, onDeleteCourse, onRefreshCourses }) => {
+const CoursesView = ({ courses, onLaunchCourse, onDeleteCourse, onRefreshCourses, catalog }) => {
     const { showAlert } = useDialog();
     const [selectedCourse, setSelectedCourse] = useState(null);
+    const [viewMode, setViewMode] = useState('list'); // 'list' or 'builder'
 
     const handleImportCourse = async () => {
+        // ... (existing code stays same)
         if (!window.electronAPI) return;
 
         const res = await window.electronAPI.invoke('library:import-pack');
@@ -27,6 +30,7 @@ const CoursesView = ({ courses, onLaunchCourse, onDeleteCourse, onRefreshCourses
     };
 
     if (selectedCourse) {
+        // ... (Render Selected Course logic remains same)
         return (
             <div className="w-full max-w-[1400px] mx-auto p-16 animate-in fade-in slide-in-from-right-4 duration-500 relative z-10 h-full flex flex-col">
                 <header className="mb-12 border-b border-white/[0.05] pb-8 flex items-center gap-6">
@@ -92,65 +96,88 @@ const CoursesView = ({ courses, onLaunchCourse, onDeleteCourse, onRefreshCourses
         <div className="w-full max-w-[1400px] mx-auto p-16 animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10 h-full flex flex-col">
             <header className="mb-12 border-b border-white/[0.05] pb-8 flex justify-between items-end">
                 <div>
-                    <h1 className="text-4xl font-normal text-white mb-3 tracking-tight">Готовые Курсы</h1>
-                    <p className="text-sm font-medium text-gray-400 uppercase tracking-widest">СТРОГИЕ И МНОГОДНЕВНЫЕ ПРОГРАММЫ</p>
-                </div>
-                <button onClick={handleImportCourse} className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/5 flex items-center gap-2 px-4 py-2 rounded-lg transition-colors">
-                    <Download size={16} className="rotate-180" /> Импорт Курса
-                </button>
-            </header>
-
-            <div className="flex-1 relative space-y-8">
-                {courses.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {courses.map(course => {
-                            let totalMinutes = 0;
-                            course.playlist.forEach(item => totalMinutes += Math.round(item.duration / 60));
-
-                            return (
-                                <div
-                                    key={course.id}
-                                    onClick={() => handleCourseClick(course)}
-                                    className="relative bg-white/[0.02] border border-white/[0.05] hover:border-[#E63946]/50 hover:bg-white/[0.05] p-6 rounded-xl cursor-pointer transition-all flex flex-col gap-4 group overflow-hidden"
-                                >
-                                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#E63946]/5 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-                                    <div className="font-bold text-xl text-white group-hover:text-[#E63946] transition-colors relative z-10 pr-6">
-                                        {course.name}
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm text-gray-400 font-mono relative z-10">
-                                        <span className="bg-white/5 py-1 px-3 rounded text-xs">{course.itemsCount || course.days?.length} шагов/дней</span>
-                                        <span className="font-bold text-white">{totalMinutes} мин</span>
-                                    </div>
-
-                                    {onDeleteCourse && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onDeleteCourse(course.id);
-                                            }}
-                                            className="absolute top-4 right-4 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                                            title="Удалить курс"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    )}
-                                </div>
-                            )
-                        })}
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white/[0.01] rounded-2xl border border-white/[0.02]">
-                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                            <span className="text-2xl">📦</span>
-                        </div>
-                        <h3 className="text-xl font-bold text-white mb-2">Нет готовых курсов</h3>
-                        <p className="text-gray-500 text-center max-w-sm mb-6">
-                            Импортируйте .gpack файлы с экспортированными программами, чтобы они появились здесь.
-                        </p>
-                        <button onClick={handleImportCourse} className="bg-[#E63946] hover:bg-red-600 text-white font-medium flex items-center gap-2 px-6 py-2.5 rounded-lg transition-colors shadow-lg shadow-red-500/20">
-                            <Download size={18} className="rotate-180" /> Импорт Курса
+                    <h1 className="text-4xl font-normal text-white mb-3 tracking-tight">Курсы и Обучение</h1>
+                    <div className="flex gap-4 mt-2">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`text-xs font-bold uppercase tracking-widest pb-2 border-b-2 transition-all ${viewMode === 'list' ? 'border-[#E63946] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            Список
+                        </button>
+                        <button
+                            onClick={() => setViewMode('builder')}
+                            className={`text-xs font-bold uppercase tracking-widest pb-2 border-b-2 transition-all ${viewMode === 'builder' ? 'border-[#E63946] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            Конструктор
                         </button>
                     </div>
+                </div>
+                <div className="flex gap-3">
+                    {viewMode === 'list' && (
+                        <button onClick={handleImportCourse} className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/5 flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm">
+                            <Download size={16} className="rotate-180" /> Импорт
+                        </button>
+                    )}
+                </div>
+            </header>
+
+            <div className="flex-1 relative space-y-8 overflow-y-auto pr-2 custom-scrollbar">
+                {viewMode === 'builder' ? (
+                    <CourseBuilder catalog={catalog} isSubView={true} />
+                ) : (
+                    <>
+                        {courses.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {courses.map(course => {
+                                    let totalMinutes = 0;
+                                    course.playlist.forEach(item => totalMinutes += Math.round(item.duration / 60));
+
+                                    return (
+                                        <div
+                                            key={course.id}
+                                            onClick={() => handleCourseClick(course)}
+                                            className="relative bg-white/[0.02] border border-white/[0.05] hover:border-[#E63946]/50 hover:bg-white/[0.05] p-6 rounded-xl cursor-pointer transition-all flex flex-col gap-4 group overflow-hidden"
+                                        >
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-[#E63946]/5 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                                            <div className="font-bold text-xl text-white group-hover:text-[#E63946] transition-colors relative z-10 pr-6">
+                                                {course.name}
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm text-gray-400 font-mono relative z-10">
+                                                <span className="bg-white/5 py-1 px-3 rounded text-xs">{course.itemsCount || course.days?.length} шагов/дней</span>
+                                                <span className="font-bold text-white">{totalMinutes} мин</span>
+                                            </div>
+
+                                            {onDeleteCourse && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDeleteCourse(course.id);
+                                                    }}
+                                                    className="absolute top-4 right-4 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                                                    title="Удалить курс"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-20 bg-white/[0.01] rounded-2xl border border-white/[0.02]">
+                                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-6">
+                                    <span className="text-2xl">📦</span>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Нет готовых курсов</h3>
+                                <p className="text-gray-500 text-center max-w-sm mb-6">
+                                    Импортируйте .gpack файлы или создайте новый курс в Конструкторе.
+                                </p>
+                                <button onClick={() => setViewMode('builder')} className="bg-[#E63946] hover:bg-red-600 text-white font-medium flex items-center gap-2 px-6 py-2.5 rounded-lg transition-colors shadow-lg shadow-red-500/20">
+                                    <Wrench size={18} /> Перейти в Конструктор
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
