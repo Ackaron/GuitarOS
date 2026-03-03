@@ -28,13 +28,14 @@ class LibraryService {
         try {
             await fs.ensureDir(LIBRARY_PATH);
 
-            // Check if we need to seed the library from assets
-            const existingFiles = await fs.readdir(LIBRARY_PATH);
-            if (existingFiles.length === 0 && fs.existsSync(BUNDLED_LIBRARY_PATH)) {
-                console.log('LibraryService — Seeding library from bundled assets...');
-                await fs.copy(BUNDLED_LIBRARY_PATH, LIBRARY_PATH);
+            // 1. Sync bundled assets (Non-destructive merge)
+            if (await fs.pathExists(BUNDLED_LIBRARY_PATH)) {
+                console.log('LibraryService — Syncing bundled assets...');
+                // overwrite: false ensures we only add new files, never replace user edits
+                await fs.copy(BUNDLED_LIBRARY_PATH, LIBRARY_PATH, { overwrite: false });
             }
 
+            // 2. Ensure standard category folders exist
             const defaults = ['Theory', 'Etude', 'Technique', 'Songs', 'Custom'];
             for (const folder of defaults) {
                 await fs.ensureDir(path.join(LIBRARY_PATH, folder));

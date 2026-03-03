@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDialog } from '../context/DialogContext';
 
 export const useSession = (initialTotalMinutes = 60) => {
@@ -8,8 +8,13 @@ export const useSession = (initialTotalMinutes = 60) => {
     const [routine, setRoutine] = useState([]);
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
+    const hasCheckedSession = useRef(false);
+
     // Initial load of active session if any
     useEffect(() => {
+        if (hasCheckedSession.current) return;
+        hasCheckedSession.current = true;
+
         const checkActiveSession = async () => {
             if (window.electronAPI) {
                 const prefsData = await window.electronAPI.invoke('prefs:get');

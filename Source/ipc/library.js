@@ -129,7 +129,13 @@ function registerLibraryHandlers() {
     // Read a file as buffer (for binary files like .gp)
     ipcMain.handle('fs:read-file', async (_event, filePath) => {
         try {
+            console.log(`[IPC] fs:read-file: Requesting "${filePath}"`);
+            if (!fs.existsSync(filePath)) {
+                console.error(`[IPC] fs:read-file: File NOT FOUND at "${filePath}"`);
+                return null;
+            }
             const buffer = await fs.readFile(filePath);
+            console.log(`[IPC] fs:read-file: Successfully read ${buffer.length} bytes from "${filePath}"`);
             return buffer; // Electron automatically converts Buffer to Uint8Array/ArrayBuffer for the renderer
         } catch (err) {
             console.error('fs:read-file failed:', err);

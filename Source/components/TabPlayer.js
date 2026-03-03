@@ -4,13 +4,13 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
     Play, Pause, Square, RotateCcw, RefreshCw,
     Volume2, Gauge, List, ZoomIn, ZoomOut,
-    Timer, Hash, Music2, Settings, X, ChevronDown
+    Timer, Hash, Music2, Settings, X, ChevronDown, Clock
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────
-const CDN = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist';
+const LOCAL_ASSETS = '/alphatab';
 
 
 // StaveProfile enum: Default=0, ScoreTab=1, Score=2, Tab=3, TabMixed=4
@@ -110,7 +110,23 @@ function SpeedSettingsPopup({ isOpen, onClose, onApply, initialState }) {
     if (!isOpen) return null;
 
     const handleApply = () => {
-        onApply({ mode, pct, bpm, from, to, step, repeat });
+        // Final validation and clamping on Apply
+        const finalPct = Math.max(10, Math.min(200, parseInt(pct) || 100));
+        const finalBpm = Math.max(20, Math.min(400, parseInt(bpm) || 120));
+        const finalFrom = Math.max(10, Math.min(200, parseInt(from) || 70));
+        const finalTo = Math.max(10, Math.min(200, parseInt(to) || 100));
+        const finalStep = Math.max(1, Math.min(100, parseInt(step) || 10));
+        const finalRepeat = Math.max(1, Math.min(20, parseInt(repeat) || 1));
+
+        onApply({
+            mode,
+            pct: finalPct,
+            bpm: finalBpm,
+            from: finalFrom,
+            to: finalTo,
+            step: finalStep,
+            repeat: finalRepeat
+        });
         onClose();
     };
 
@@ -144,8 +160,8 @@ function SpeedSettingsPopup({ isOpen, onClose, onApply, initialState }) {
             <div className="flex items-center gap-2 mt-2 mb-4 ml-6">
                 <span className={labelClass(mode === 'relative')}>Скорость:</span>
                 <input
-                    type="number" min={10} max={200} value={pct}
-                    onChange={(e) => setPct(Math.max(10, Math.min(200, parseInt(e.target.value) || 10)))}
+                    type="number" value={pct}
+                    onChange={(e) => setPct(e.target.value)}
                     disabled={mode !== 'relative'}
                     className={inputClass(mode === 'relative')}
                 />
@@ -160,8 +176,8 @@ function SpeedSettingsPopup({ isOpen, onClose, onApply, initialState }) {
             <div className="flex items-center gap-2 mt-2 mb-4 ml-6">
                 <span className={labelClass(mode === 'fixed')}>Удары в мин:</span>
                 <input
-                    type="number" min={20} max={400} value={bpm}
-                    onChange={(e) => setBpm(Math.max(20, Math.min(400, parseInt(e.target.value) || 20)))}
+                    type="number" value={bpm}
+                    onChange={(e) => setBpm(e.target.value)}
                     disabled={mode !== 'fixed'}
                     className={inputClass(mode === 'fixed')}
                 />
@@ -175,26 +191,26 @@ function SpeedSettingsPopup({ isOpen, onClose, onApply, initialState }) {
             </label>
             <div className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-2 mt-2 mb-4 ml-6 items-center">
                 <span className={labelClass(mode === 'progressive')}>От:</span>
-                <input type="number" min={10} max={200} value={from}
-                    onChange={(e) => setFrom(Math.max(10, Math.min(200, parseInt(e.target.value) || 10)))}
+                <input type="number" value={from}
+                    onChange={(e) => setFrom(e.target.value)}
                     disabled={mode !== 'progressive'} className={inputClass(mode === 'progressive')} />
                 <span className={labelClass(mode === 'progressive')}>%</span>
 
                 <span className={labelClass(mode === 'progressive')}>До:</span>
-                <input type="number" min={10} max={200} value={to}
-                    onChange={(e) => setTo(Math.max(10, Math.min(200, parseInt(e.target.value) || 10)))}
+                <input type="number" value={to}
+                    onChange={(e) => setTo(e.target.value)}
                     disabled={mode !== 'progressive'} className={inputClass(mode === 'progressive')} />
                 <span className={labelClass(mode === 'progressive')}>%</span>
 
                 <span className={labelClass(mode === 'progressive')}>Шаг:</span>
-                <input type="number" min={1} max={100} value={step}
-                    onChange={(e) => setStep(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                <input type="number" value={step}
+                    onChange={(e) => setStep(e.target.value)}
                     disabled={mode !== 'progressive'} className={inputClass(mode === 'progressive')} />
                 <span className={labelClass(mode === 'progressive')}>%</span>
 
                 <span className={labelClass(mode === 'progressive')}>Повтор:</span>
-                <input type="number" min={1} max={20} value={repeat}
-                    onChange={(e) => setRepeat(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                <input type="number" value={repeat}
+                    onChange={(e) => setRepeat(e.target.value)}
                     disabled={mode !== 'progressive'} className={inputClass(mode === 'progressive')} />
                 <span className={labelClass(mode === 'progressive')}>x</span>
             </div>
@@ -242,6 +258,9 @@ export default function TabPlayer({ filePath }) {
     const [trackVolumes, setTrackVolumes] = useState({});
     const [tracksOpen, setTracksOpen] = useState(false);
     const [metro, setMetro] = useState(false);
+    const [countIn, setCountIn] = useState(false);
+    const [isCounting, setIsCounting] = useState(false);
+    const [countNumber, setCountNumber] = useState(0);
 
     // Display toggles
     const [notes, setNotes] = useState(true);
@@ -275,7 +294,7 @@ export default function TabPlayer({ filePath }) {
 
                 const api = new AlphaTabApi(containerRef.current, {
                     core: {
-                        fontDirectory: `${CDN}/font/`,
+                        fontDirectory: `${LOCAL_ASSETS}/font/`,
                         enableLazyLoading: false,       // CRITICAL for Electron
                         logLevel: 1,                    // Warning level for debug
                     },
@@ -285,7 +304,7 @@ export default function TabPlayer({ filePath }) {
                         enableUserInteraction: true,
                         enableAnimatedBeatCursor: true,
                         enableElementHighlighting: true,
-                        soundFont: `${CDN}/soundfont/sonivox.sf2`,
+                        soundFont: `${LOCAL_ASSETS}/soundfont/sonivox.sf2`,
                         scrollElement: scrollRef.current,
                     },
                     display: {
@@ -435,6 +454,66 @@ export default function TabPlayer({ filePath }) {
 
     const doLoop = () => { setLoop((p) => { const n = !p; if (apiRef.current) apiRef.current.isLooping = n; return n; }); };
     const doMetro = () => { setMetro((p) => { const n = !p; if (apiRef.current) apiRef.current.metronomeVolume = n ? 1 : 0; return n; }); };
+    const doCountIn = () => { setCountIn(p => !p); };
+
+    const handlePlayPause = useCallback(() => {
+        const api = apiRef.current;
+        if (!api || !loaded) return;
+
+        if (api.playerState === 1) { // Playing
+            api.pause();
+            return;
+        }
+
+        if (countIn) {
+            setIsCounting(true);
+            let beats = 4; // Default to 4 beats for 1 bar
+
+            // Try to get time signature from score
+            if (api.score?.masterBars?.length > 0) {
+                beats = api.score.masterBars[0].timeSignatureNumerator;
+            }
+
+            let currentBeat = 0;
+            setCountNumber(beats);
+
+            // Simple Web Audio tick sound
+            const playTick = (freq = 880) => {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.1);
+                } catch (e) {
+                    console.warn('Could not play tick sound:', e);
+                }
+            };
+
+            // Initial tick
+            playTick(1200);
+
+            const interval = setInterval(() => {
+                currentBeat++;
+                if (currentBeat >= beats) {
+                    clearInterval(interval);
+                    setIsCounting(false);
+                    api.play();
+                } else {
+                    setCountNumber(beats - currentBeat);
+                    playTick(currentBeat === beats - 1 ? 1200 : 880); // Higher pitch for last beat
+                }
+            }, (60 / (api.score?.tempo || 120)) * 1000 / (api.playbackSpeed || 1));
+        } else {
+            api.play();
+        }
+    }, [loaded, countIn]);
 
     // Speed settings handler
     const applySpeedConfig = useCallback((cfg) => {
@@ -510,8 +589,14 @@ export default function TabPlayer({ filePath }) {
 
                 {/* Transport */}
                 <Group>
-                    <Btn onClick={() => apiRef.current?.playPause()} disabled={!loaded} active={playing} color="red" title={playing ? 'Pause' : 'Play'}>
-                        {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+                    <Btn onClick={handlePlayPause} disabled={!loaded || isCounting} active={playing || isCounting} color="red" title={playing ? 'Pause' : 'Play'}>
+                        {isCounting ? (
+                            <span className="text-sm font-bold w-[18px] h-[18px] flex items-center justify-center">{countNumber}</span>
+                        ) : playing ? (
+                            <Pause size={18} fill="currentColor" />
+                        ) : (
+                            <Play size={18} fill="currentColor" className="ml-0.5" />
+                        )}
                     </Btn>
                     <Btn onClick={() => apiRef.current?.stop()} disabled={!loaded} title="Stop">
                         <Square size={18} fill="currentColor" />
@@ -522,6 +607,9 @@ export default function TabPlayer({ filePath }) {
                     </Btn>
                     <Btn onClick={doMetro} disabled={!loaded} active={metro} color="yellow" title="Metronome">
                         <Timer size={18} />
+                    </Btn>
+                    <Btn onClick={doCountIn} disabled={!loaded} active={countIn} color="yellow" title="Count-in (1 bar)">
+                        <Clock size={18} className={countIn ? 'animate-pulse' : ''} />
                     </Btn>
                 </Group>
 

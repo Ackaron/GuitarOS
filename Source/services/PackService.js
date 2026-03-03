@@ -183,6 +183,19 @@ class PackService {
 
                 await fs.move(tempExtractPath, targetPath);
                 return { success: true, folder: path.basename(targetPath) };
+            } else if (packType === 'guitaros_pack_full') {
+                // Full Library Backup: The zip contains a "Library" folder
+                const extractedLibrary = path.join(tempExtractPath, 'Library');
+                if (await fs.pathExists(extractedLibrary)) {
+                    console.log('PackService — Restoring full library backup...');
+                    // Use copy with overwrite:true to merge the backup into current library
+                    await fs.copy(extractedLibrary, libraryPath, { overwrite: true });
+                    await fs.remove(tempExtractPath);
+                    return { success: true, folder: 'Full Library Restored' };
+                } else {
+                    await fs.remove(tempExtractPath);
+                    return { success: false, error: 'Backup archive is missing Library folder' };
+                }
             } else if (packType === 'guitaros_pack' || !manifest) {
                 // Regenerate IDs safely in the temp folder first
                 await this._regenerateIdsAndPaths(tempExtractPath);
