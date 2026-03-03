@@ -197,6 +197,20 @@ function registerLibraryHandlers() {
     ipcMain.handle('library:delete-course', async (_event, courseId) => {
         return await LibraryService.deleteCourse(courseId);
     });
+
+    // Open a folder in explorer
+    ipcMain.handle('fs:open-path', async (_event, type) => {
+        const { shell } = require('electron');
+        const target = type === 'library'
+            ? LibraryService.getLibraryPath()
+            : require('../config/dataPath').USER_DATA_PATH;
+
+        if (await fs.pathExists(target)) {
+            await shell.openPath(target);
+            return { success: true };
+        }
+        return { success: false, error: 'Path not found: ' + target };
+    });
 }
 
 module.exports = { registerLibraryHandlers };

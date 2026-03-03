@@ -270,6 +270,54 @@ export default function SettingsView() {
                         </div>
                     </div>
                 </section>
+
+                {/* Storage & Debugging */}
+                <section className="bg-white/[0.02] rounded-2xl p-6">
+                    <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                        <Save size={24} className="text-gray-400" />
+                        {t('settings.storage_title') || 'Хранилище и отладка'}
+                    </h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-white/5 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-yellow-500/20 text-yellow-400 rounded-full">
+                                    <Music size={24} />
+                                </div>
+                                <div>
+                                    <div className="font-bold text-white">Папка Библиотеки</div>
+                                    <div className="text-xs text-gray-400">Путь к вашим табулатурам</div>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={() => window.electronAPI.invoke('fs:open-path', 'library')}
+                                variant="outline"
+                                className="text-xs whitespace-nowrap"
+                            >
+                                Открыть
+                            </Button>
+                        </div>
+
+                        <div className="p-4 bg-white/5 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-red-500/20 text-red-400 rounded-full">
+                                    <Settings size={24} />
+                                </div>
+                                <div>
+                                    <div className="font-bold text-white">Папка Данных</div>
+                                    <div className="text-xs text-gray-400">Профили и настройки</div>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={() => window.electronAPI.invoke('fs:open-path', 'data')}
+                                variant="outline"
+                                className="text-xs whitespace-nowrap"
+                            >
+                                Открыть
+                            </Button>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
     );

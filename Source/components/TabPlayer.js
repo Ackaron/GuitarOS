@@ -10,7 +10,7 @@ import {
 // ─────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────
-const LOCAL_ASSETS = '/alphatab';
+const LOCAL_ASSETS = 'alphatab';
 
 
 // StaveProfile enum: Default=0, ScoreTab=1, Score=2, Tab=3, TabMixed=4

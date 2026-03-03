@@ -40,7 +40,7 @@ export default function LoginScreen({ onLogin }) {
                     {/* Logo */}
                     <div className="flex flex-col items-center mb-10">
                         <div className="w-20 h-20 rounded-2xl overflow-hidden mb-5">
-                            <img src="/logo.png" alt="GuitarOS" className="w-full h-full object-contain filter grayscale brightness-200" />
+                            <img src="logo.png" alt="GuitarOS" className="w-full h-full object-contain filter grayscale brightness-200" />
                         </div>
                         <h1 className="text-3xl font-bold text-white tracking-wider mb-1">GuitarOS</h1>
                         <p className="text-sm text-gray-500 font-medium">{t('login.subtitle') || 'Practice Environment'}</p>

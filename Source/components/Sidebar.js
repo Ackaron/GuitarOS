@@ -55,7 +55,7 @@ const Sidebar = ({ activeView, onNavigate, isOpen, onToggle, onLogout }) => {
                     <div className="flex flex-col">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 flex items-center justify-center opacity-90">
-                                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                                <img src="logo.png" alt="Logo" className="w-full h-full object-contain" />
                             </div>
                             {isOpen && <h1 className="text-xl font-bold text-white tracking-tight">GuitarOS</h1>}
                         </div>
