@@ -36,7 +36,7 @@ export const calculateScore = (params) => {
 
         if (userRating === 'easy') qualityScore += 20;
         else if (userRating === 'good') qualityScore += 10;
-        // if 'hard', we only get the base speed ratio score
+        // 'hard' and 'auto' (neutral/automatic save) get no bonus — base speed ratio only
     }
 
     qualityScore = Math.max(0, Math.min(100, qualityScore));
@@ -52,14 +52,14 @@ export const calculateScore = (params) => {
     let weightTime = 0.5;
 
     if (dayFocus === 'speed') {
-        weightQuality = 0.7; // Speed prioritizes output (BPM)
-        weightTime = 0.3;
+        weightQuality = 0.65; // Speed prioritizes output (BPM)
+        weightTime = 0.35;
     } else if (dayFocus === 'clarity') {
         weightQuality = 0.8; // Clarity prioritizes getting perfect stars
         weightTime = 0.2;
     } else if (dayFocus === 'stability') {
-        weightQuality = 0.3;
-        weightTime = 0.7;    // Stability strictly prioritizes putting in the TIME (stamina)
+        weightQuality = 0.35;
+        weightTime = 0.65;    // Stability strictly prioritizes putting in the TIME (stamina)
     }
 
     let baseScore = (qualityScore * weightQuality) + (timeScore * weightTime);
@@ -72,12 +72,12 @@ export const calculateScore = (params) => {
         baseScore *= 1.1; // Bonus for extreme cleanliness
     }
     if (dayFocus === 'stability' && durationRatio >= 0.95 && (confidence >= 3 || userRating !== 'hard')) {
-        baseScore *= 1.15; // Massive stamina bonus for finishing the timer without failing
+        baseScore *= 1.05; // Balanced stamina bonus for finishing the timer without failing (reduced from 1.15)
     }
 
     // 5. Anti-Cheat: Harsh penalty for skipping early
     // If you skip halfway or less, your overall score drops severely
-    if (durationRatio < 0.5) {
+    if (durationRatio < 0.5 && dayFocus !== 'speed') {
         // e.g., durationRatio = 0.1 (10% played). Multiplier = 0.5 + 0.1 = 0.6x
         baseScore *= (0.5 + durationRatio);
     }

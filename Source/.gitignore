@@ -34,3 +34,6 @@ yarn-error.log*
 # Electron
 /dist
 /release-builds
+
+# Auto-generated AlphaTab runtime files (copied from node_modules by postinstall)
+public/alphatab/alphaTab*.mjs

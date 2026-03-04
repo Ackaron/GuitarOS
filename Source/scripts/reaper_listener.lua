@@ -34,6 +34,10 @@ function parse_json(str)
   data.backing = str:match('"backing":%s*"(.-)"')
   data.original = str:match('"original":%s*"(.-)"')
   
+  data.inputChannel = str:match('"inputChannel":%s*(%d+)')
+  if str:match('"recordMonitoring":%s*true') then data.recordMonitoring = 1 end
+  if str:match('"recordMonitoring":%s*false') then data.recordMonitoring = 0 end
+  
   data.command = str:match('"command":%s*"(.-)"')
   data.trackIndex = str:match('"trackIndex":%s*(%d+)')
   
@@ -101,14 +105,15 @@ function main()
         local tr_guitar = reaper.GetTrack(0, 0)
         reaper.GetSetMediaTrackInfo_String(tr_guitar, "P_NAME", "Guitar", true)
         
-        -- Input 2 (Mono) -> Value 1 (0-indexed)
-        reaper.SetMediaTrackInfo_Value(tr_guitar, "I_RECINPUT", 1) 
+        -- Reaper uses 0-indexed values for Mono Inputs. So Input 1 is 0, Input 2 is 1. Check bitwise for multichannel, etc. 
+        -- API standard format for physical inputs (Mono): 0 = Input 1, 1 = Input 2, etc. OR if offset needed, usually +0.
+        local in_chan = data.inputChannel and (tonumber(data.inputChannel) - 1) or 1
+        reaper.SetMediaTrackInfo_Value(tr_guitar, "I_RECINPUT", in_chan) 
         
-        -- Record Arm Off
-        reaper.SetMediaTrackInfo_Value(tr_guitar, "I_RECARM", 0)   
-        
-        -- Monitor On
-        reaper.SetMediaTrackInfo_Value(tr_guitar, "I_RECMON", 1)   
+        -- Record Arm and Monitor state from config
+        local mon = data.recordMonitoring and tonumber(data.recordMonitoring) or 1
+        reaper.SetMediaTrackInfo_Value(tr_guitar, "I_RECARM", mon)   
+        reaper.SetMediaTrackInfo_Value(tr_guitar, "I_RECMON", mon)   
         
         reaper.SetTrackColor(tr_guitar, reaper.ColorToNative(255, 100, 100))
 

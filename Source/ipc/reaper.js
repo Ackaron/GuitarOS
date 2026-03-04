@@ -8,7 +8,7 @@
  */
 'use strict';
 
-const { ipcMain } = require('electron');
+const { ipcMain, app } = require('electron');
 const path = require('path');
 const { getUserDB } = require('../services/db');
 const ReaperService = require('../services/ReaperService');
@@ -148,31 +148,53 @@ function registerReaperHandlers() {
             ];
 
             const fse = require('fs-extra');
-            let scriptsDir = null;
-            for (const candidate of scriptsDirCandidates) {
-                if (await fse.pathExists(candidate)) { scriptsDir = candidate; break; }
+
+            // Collect all possible script directories
+            const scriptsDirs = [
+                path.join(reaperDir, 'Scripts'), // Reaper64/Scripts
+                path.join(reaperDir, '..', 'Scripts'), // Reaper/Scripts
+                path.join(appData, 'REAPER', 'Scripts'), // Installed/Scripts
+            ];
+
+            const srcListenerDev = path.join(__dirname, '..', 'scripts', 'reaper_listener.lua');
+            const srcListenerProd = path.join(process.resourcesPath || '', 'scripts', 'reaper_listener.lua');
+            let srcListener = srcListenerDev;
+            if (app.isPackaged || await fse.pathExists(srcListenerProd)) {
+                srcListener = srcListenerProd;
             }
-            if (!scriptsDir) {
-                scriptsDir = path.join(reaperDir, 'Scripts');
-                await fse.ensureDir(scriptsDir);
+            if (!await fse.pathExists(srcListener)) {
+                srcListener = srcListenerDev; // Ultimate fallback
             }
 
-            const srcListener = path.join(__dirname, '..', 'scripts', 'reaper_listener.lua');
-            const dstListener = path.join(scriptsDir, 'reaper_listener.lua');
-            await fse.copyFile(srcListener, dstListener);
+            // Install to ALL viable candidate directories to ensure portable instances find it
+            let lastSuccessfulPath = null;
+            for (const dir of scriptsDirs) {
+                try {
+                    await fse.ensureDir(dir);
+                    const dstListener = path.join(dir, 'reaper_listener.lua');
+                    await fse.copyFile(srcListener, dstListener);
 
-            const startupPath = path.join(scriptsDir, '__startup.lua');
-            const startupLine = `dofile(reaper.GetResourcePath() .. '/Scripts/reaper_listener.lua')\n`;
-            if (await fse.pathExists(startupPath)) {
-                let current = await fse.readFile(startupPath, 'utf8');
-                if (!current.includes('reaper_listener.lua')) {
-                    await fse.writeFile(startupPath, current + '\n' + startupLine);
+                    const startupPath = path.join(dir, '__startup.lua');
+                    const startupLine = `dofile(reaper.GetResourcePath() .. '/Scripts/reaper_listener.lua')\n`;
+                    if (await fse.pathExists(startupPath)) {
+                        let current = await fse.readFile(startupPath, 'utf8');
+                        if (!current.includes('reaper_listener.lua')) {
+                            await fse.writeFile(startupPath, current + '\n' + startupLine);
+                        }
+                    } else {
+                        await fse.writeFile(startupPath, startupLine);
+                    }
+                    lastSuccessfulPath = dstListener;
+                } catch (e) {
+                    console.log(`Failed to copy to ${dir}:`, e.message);
                 }
-            } else {
-                await fse.writeFile(startupPath, startupLine);
             }
 
-            return { success: true, scriptPath: dstListener };
+            if (!lastSuccessfulPath) {
+                return { success: false, error: 'Could not write Lua script to any Reaper scripts directory.' };
+            }
+
+            return { success: true, scriptPath: lastSuccessfulPath };
         } catch (err) {
             return { success: false, error: err.message };
         }
@@ -196,8 +218,20 @@ function registerReaperHandlers() {
 async function _autoUpdateListener() {
     try {
         const fse = require('fs-extra');
-        const srcListener = path.join(__dirname, '..', 'scripts', 'reaper_listener.lua');
-        if (!fse.existsSync(srcListener)) return;
+        const srcListenerDev = path.join(__dirname, '..', 'scripts', 'reaper_listener.lua');
+        const srcListenerProd = path.join(process.resourcesPath || '', 'scripts', 'reaper_listener.lua');
+        let srcListener = srcListenerDev;
+        if (app.isPackaged || await fse.pathExists(srcListenerProd)) {
+            srcListener = srcListenerProd;
+        }
+        if (!await fse.pathExists(srcListener)) {
+            srcListener = srcListenerDev;
+        }
+
+        if (!fse.existsSync(srcListener)) {
+            console.warn('[IPC] Source listener script not found at:', srcListener);
+            return;
+        }
 
         const appData = process.env.APPDATA || '';
         const scriptsDirs = [
@@ -209,15 +243,21 @@ async function _autoUpdateListener() {
             const prefs = await UserPreferencesService.getPreferences();
             const reaperExe = prefs.general?.reaperPath;
             if (reaperExe) {
-                scriptsDirs.push(path.join(path.dirname(reaperExe), 'Scripts'));
+                const reaperDir = path.dirname(reaperExe);
+                scriptsDirs.push(path.join(reaperDir, 'Scripts')); // Reaper64/Scripts
+                scriptsDirs.push(path.join(reaperDir, '..', 'Scripts')); // Reaper/Scripts
             }
         } catch (_) { /* ignore */ }
 
         for (const dir of scriptsDirs) {
-            const dest = path.join(dir, 'reaper_listener.lua');
-            if (await fse.pathExists(dir)) {
+            try {
+                // Ensure the directory exists before copying otherwise it will throw an error
+                await fse.ensureDir(dir);
+                const dest = path.join(dir, 'reaper_listener.lua');
                 await fse.copyFile(srcListener, dest);
                 console.log('[IPC] Listener updated at:', dest);
+            } catch (err) {
+                console.log(`[IPC] Failed to update listener at ${dir}:`, err.message);
             }
         }
     } catch (err) {
@@ -229,12 +269,17 @@ async function _autoUpdateListener() {
  * Merge fresh BPM and db data into the exercise object.
  */
 async function _enrichExercise(exercise) {
-    const userDb = getUserDB();
-    await userDb.read();
-    const dbItem = (userDb.data.exercises || []).find(e => e.id === exercise.id);
-    const enriched = { ...exercise, ...(dbItem || {}) };
-    if (!enriched.path) enriched.path = exercise.path;
-    return enriched;
+    try {
+        const userDb = getUserDB();
+        await userDb.read();
+        const dbItem = (userDb.data.exercises || []).find(e => e.id === exercise.id);
+        const enriched = { ...exercise, ...(dbItem || {}) };
+        if (!enriched.path) enriched.path = exercise.path;
+        return enriched;
+    } catch (err) {
+        console.warn('_enrichExercise failed, using raw exercise:', err.message);
+        return exercise;
+    }
 }
 
 /**

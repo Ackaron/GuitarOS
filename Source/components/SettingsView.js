@@ -11,7 +11,9 @@ export default function SettingsView() {
     const [prefs, setPrefs] = useState({
         general: {
             launchReaper: true,
-            launchGuitarPro: true
+            launchGuitarPro: true,
+            inputChannel: 2,
+            recordMonitoring: true
         }
     });
 
@@ -194,6 +196,42 @@ export default function SettingsView() {
                                                 >
                                                     📜 Install Lua Script
                                                 </Button>
+                                            </div>
+
+                                            <div className="pt-2 border-t border-white/[0.05]">
+                                                <label className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1 block">Audio Input Channel</label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="32"
+                                                        value={prefs.general.inputChannel ?? 2}
+                                                        onChange={(e) => {
+                                                            const val = parseInt(e.target.value) || 2;
+                                                            const newPrefs = { ...prefs, general: { ...prefs.general, inputChannel: val } };
+                                                            setPrefs(newPrefs);
+                                                        }}
+                                                        onBlur={() => {
+                                                            if (window.electronAPI) {
+                                                                window.electronAPI.invoke('prefs:save', { general: { ...prefs.general } });
+                                                            }
+                                                        }}
+                                                        className="w-24 bg-white/[0.02] rounded px-3 py-2 text-sm text-gray-300 font-mono text-center"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center justify-between pb-2 pt-2">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white uppercase tracking-wider">Record Monitoring</div>
+                                                    <div className="text-xs text-gray-500">Enable input monitoring in Reaper</div>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); togglePref('recordMonitoring'); }}
+                                                    className={`w-10 h-6 rounded-full p-1 transition-colors ${prefs.general.recordMonitoring !== false ? 'bg-green-500' : 'bg-gray-700'}`}
+                                                >
+                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${prefs.general.recordMonitoring !== false ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                </button>
                                             </div>
                                         </div>
                                     </div>

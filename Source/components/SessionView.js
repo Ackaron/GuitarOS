@@ -85,7 +85,7 @@ const SessionView = ({
                 dayFocus,
                 targetBpm: currentItem.targetBPM,
                 actualBpm: currentBpm,
-                userRating: 'good', // assume 'good' for auto-saves since it focuses on objective time discipline
+                userRating: 'auto', // Neutral baseline since user did not manually rate
                 confidence: null,
                 plannedDuration: planned,
                 actualDuration: elapsed
@@ -171,6 +171,8 @@ const SessionView = ({
                                     }
                                     return currentItem.files.tab.replace(/\\/g, '/');
                                 })()}
+                                sessionBpm={currentBpm}
+                                onSessionBpmChange={(bpm) => handleBpmChange(bpm, true)}
                             />
                         </div>
                     )}

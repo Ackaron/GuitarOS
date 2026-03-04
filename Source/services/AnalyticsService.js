@@ -95,6 +95,9 @@ class AnalyticsService {
         const db = getUserDB();
         await db.read();
 
+        // Build a lookup map for O(1) catalog access
+        const catalogMap = new Map(catalog.items.map(i => [i.id, i]));
+
         const stats = {
             Technique: { count: 0, time: 0, growth: 0 },
             Songs: { count: 0, time: 0, growth: 0 },
@@ -106,7 +109,7 @@ class AnalyticsService {
             const histCount = ex.history ? ex.history.length : 0;
             if (histCount === 0) continue;
 
-            const catalogItem = catalog.items.find(i => i.id === ex.id);
+            const catalogItem = catalogMap.get(ex.id);
             if (!catalogItem) continue;
 
             let category = 'Exercises';
@@ -142,12 +145,15 @@ class AnalyticsService {
         await db.read();
         const catalog = await LibraryService.getCatalog();
 
+        // Build a lookup map for O(1) catalog access
+        const catalogMap = new Map(catalog.items.map(i => [i.id, i]));
+
         let flatHistory = [];
 
         (db.data.exercises || []).forEach(ex => {
             if (itemId && ex.id !== itemId) return;
 
-            const catalogItem = catalog.items.find(i => i.id === ex.id);
+            const catalogItem = catalogMap.get(ex.id);
             if (!catalogItem) return;
 
             let cat = 'Exercises';
@@ -180,7 +186,7 @@ class AnalyticsService {
                     details,
                     title: ex.title || 'Unknown',
                     bpmPercent: Math.min(200, bpmPercent),
-                    time: h.actualDuration || h.duration || 0,
+                    time: typeof h.actualDuration === 'number' ? h.actualDuration : (h.duration || 0),
                     quality: numQuality,
                     sessionId: h.sessionId || null
                 });
@@ -268,63 +274,128 @@ class AnalyticsService {
         await db.read();
         const catalog = await LibraryService.getCatalog();
 
+        // Build a lookup map for O(1) catalog access
+        const catalogMap = new Map(catalog.items.map(i => [i.id, i]));
+
         let tagStats = {};
 
-        // Helper to initialize or increment tag score
-        const addScoreToTag = (tag, score, weight) => {
-            if (!tagStats[tag]) tagStats[tag] = { totalScore: 0, count: 0 };
-            tagStats[tag].totalScore += (score * weight);
-            tagStats[tag].count += weight;
-        };
+        // Step 1: Flatten all history with tags
+        let allHistory = [];
 
         (db.data.exercises || []).forEach(ex => {
             if (!ex.history || ex.history.length === 0) return;
 
-            const catalogItem = catalog.items.find(i => i.id === ex.id);
-            if (!catalogItem || !catalogItem.tags) return;
+            const catalogItem = catalogMap.get(ex.id);
+            if (!catalogItem) return;
 
-            // Get average score of this specific exercise from its history
-            let exTotalScore = 0;
-            let exCount = 0;
+            let itemTags = catalogItem.tags ? [...catalogItem.tags] : [];
 
-            ex.history.forEach(h => {
-                if (h.score !== undefined) {
-                    exTotalScore += h.score;
-                    exCount++;
-                } else if (h.confidence !== undefined) {
-                    // Legacy fallback
-                    exTotalScore += (h.confidence / 5) * 100;
-                    exCount++;
+            // Automatically inject Technique subfolders as tags
+            if (catalogItem.path && catalogItem.path.includes('Technique')) {
+                const parts = catalogItem.path.split(/[\\/]/);
+                const techIndex = parts.indexOf('Technique');
+                if (techIndex !== -1 && parts.length > techIndex + 1) {
+                    const subfolder = parts[techIndex + 1];
+                    if (!itemTags.includes(subfolder)) {
+                        itemTags.push(subfolder);
+                    }
                 }
-            });
+            }
 
-            if (exCount === 0) return;
-            const avgExerciseScore = exTotalScore / exCount;
-            // Weigh the score by the number of times they practiced it (up to a cap)
-            const weight = Math.min(exCount, 10);
+            if (itemTags.length === 0) return;
 
-            // Distribute this exercise's score to all its associated tags
-            catalogItem.tags.forEach(tag => {
-                // Filter out very broad structural tags if they exist as folders
-                if (['Exercises', 'Songs', 'Technique', 'Theory', 'Custom'].includes(tag)) return;
-                addScoreToTag(tag, avgExerciseScore, weight);
+            // Format tags
+            const formattedTags = itemTags.map(rawTag => {
+                const trimmed = rawTag.trim();
+                return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+            }).filter(tag => !['Exercises', 'Songs', 'Technique', 'Theory', 'Custom'].includes(tag));
+
+            if (formattedTags.length === 0) return;
+
+            const targetBpm = catalogItem.targetBPM || catalogItem.originalBpm || catalogItem.bpm || 120;
+            const targetDuration = catalogItem.duration || 300;
+
+            const sortedExHistory = [...ex.history].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            sortedExHistory.forEach((h, index) => {
+                const isReview = index > 0;
+                const currentBpm = h.bpm || 0;
+                const actualTime = typeof h.actualDuration === 'number' ? h.actualDuration : (h.duration || 0);
+                const plannedTime = h.plannedDuration || targetDuration;
+
+                const bpmRatio = targetBpm > 0 ? (currentBpm / targetBpm) : 1;
+                const timeRatio = plannedTime > 0 ? (actualTime / plannedTime) : 1;
+
+                const maxReward = isReview ? 2 : 5;
+                const xpGained = maxReward * Math.min(1, timeRatio) * Math.min(1, bpmRatio);
+
+                allHistory.push({
+                    date: new Date(h.date),
+                    tags: formattedTags,
+                    xpGained
+                });
             });
         });
 
-        // Calculate final averages and format for Recharts RadarChart
+        if (allHistory.length === 0) return [];
+
+        // Sort globally chronologically
+        allHistory.sort((a, b) => a.date - b.date);
+
+        // Group by Practice Sessions (e.g. Morning / Evening)
+        // A new session is defined as a gap of more than 2 hours (7200000 ms) between history entries
+        const practiceSessions = [];
+        let currentSessionObj = null;
+
+        allHistory.forEach(entry => {
+            if (!currentSessionObj) {
+                currentSessionObj = { lastDate: entry.date, entries: [entry] };
+                practiceSessions.push(currentSessionObj);
+            } else {
+                const timeDiff = entry.date - currentSessionObj.lastDate;
+                if (timeDiff > 7200000) { // 2 hours
+                    // Start a new session block
+                    currentSessionObj = { lastDate: entry.date, entries: [entry] };
+                    practiceSessions.push(currentSessionObj);
+                } else {
+                    // Append to current session
+                    currentSessionObj.entries.push(entry);
+                    currentSessionObj.lastDate = entry.date;
+                }
+            }
+        });
+
+        // Step 2: Simulate RPG progression session by session
+        practiceSessions.forEach((session, sessionIndex) => {
+            // 1. Check for decay (did we practice this session, but skip a technique for > 20 consecutive sessions?)
+            Object.keys(tagStats).forEach(tag => {
+                const sessionsSincePracticed = sessionIndex - tagStats[tag].lastPracticedSessionIndex;
+                if (sessionsSincePracticed > 20) {
+                    tagStats[tag].xp = Math.max(0, tagStats[tag].xp - 1); // 1% decay per missed practice session after 20
+                }
+            });
+
+            // 2. Process today's gains
+            session.entries.forEach(entry => {
+                entry.tags.forEach(tag => {
+                    if (!tagStats[tag]) tagStats[tag] = { xp: 0, lastPracticedSessionIndex: sessionIndex };
+
+                    tagStats[tag].xp = Math.min(100, tagStats[tag].xp + entry.xpGained);
+                    tagStats[tag].lastPracticedSessionIndex = sessionIndex;
+                });
+            });
+        });
+
+        // Format for Recharts RadarChart
         const skillMatrix = Object.keys(tagStats).map(tag => {
-            const stat = tagStats[tag];
-            const rawScore = stat.count > 0 ? (stat.totalScore / stat.count) : 0;
             return {
                 subject: tag,
-                A: Math.round(rawScore),
+                A: Math.round(tagStats[tag].xp),
                 fullMark: 100
             };
         });
 
-        // Filter out tags with barely any data and sort by highest score, then slice top N
         return skillMatrix
-            .filter(s => s.A > 0)
             .sort((a, b) => b.A - a.A)
             .slice(0, 15); // Max 15 points on the radar chart to keep it readable
     }

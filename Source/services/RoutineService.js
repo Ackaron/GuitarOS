@@ -101,9 +101,10 @@ class RoutineService {
         switch (mod.type) {
             case 'theory': {
                 const keyTarget = mod.target;
+                const theoryItems = allItems.filter(i => i.path.includes('Theory') || (i.tags && i.tags.includes('Theory')));
                 const pool = keyTarget
-                    ? allItems.filter(i => i.key === keyTarget)
-                    : allItems.filter(i => i.path.includes('Theory') || (i.tags && i.tags.includes('Theory')));
+                    ? theoryItems.filter(i => i.key === keyTarget)
+                    : theoryItems;
                 return { pool, itemName: `Theory (${keyTarget || 'Random'})` };
             }
             case 'technique': {

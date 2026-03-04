@@ -10,7 +10,24 @@ import {
 // ─────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────
-const LOCAL_ASSETS = 'alphatab';
+// Compute absolute base URL for AlphaTab assets.
+// Dev:  http://localhost:3000/alphatab/
+// Prod: file:///…/app.asar/out/alphatab/
+function getAlphaTabBasePath() {
+    if (typeof window === 'undefined') return './alphatab/';
+    const href = window.location.href;
+
+    // 🔥 ФИКС: В Electron production пути должны указывать на app.asar.unpacked
+    if (window.location.protocol === 'file:') {
+        const asarIdx = href.indexOf('app.asar');
+        if (asarIdx > 0) {
+            return href.substring(0, asarIdx) + 'app.asar.unpacked/out/alphatab/';
+        }
+    }
+
+    const base = href.substring(0, href.lastIndexOf('/') + 1);
+    return base + 'alphatab/';
+}
 
 
 // StaveProfile enum: Default=0, ScoreTab=1, Score=2, Tab=3, TabMixed=4
@@ -41,7 +58,7 @@ function ensureCursorStyles() {
 
         /* When playing: wrapper gets .at-playing → show pale yellow bar */
         .at-cursors.at-playing .at-cursor-bar {
-            background: rgba(255, 249, 196, 0.45) !important;
+            background: rgba(255, 235, 59, 0.4) !important;
             opacity: 1;
         }
 
@@ -49,17 +66,18 @@ function ensureCursorStyles() {
            Do NOT set width here — AlphaTab uses transform:scale() internally. */
         .at-cursor-beat {
             opacity: 1 !important;
+            background-color: rgba(66, 133, 244, 0.8) !important;
         }
 
         /* Selection: subtle highlight */
         .at-selection div {
-            background: rgba(66, 133, 244, 0.08) !important;
+            background: rgba(66, 133, 244, 0.1) !important;
         }
 
         /* Active note highlight (AlphaTab adds at-highlight class on active beat) */
         .at-highlight {
-            fill: #4285f4 !important;
-            color: #4285f4 !important;
+            fill: #2255aa !important;
+            color: #2255aa !important;
         }
     `;
     document.head.appendChild(el);
@@ -227,7 +245,7 @@ function SpeedSettingsPopup({ isOpen, onClose, onApply, initialState }) {
 // ─────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────
-export default function TabPlayer({ filePath }) {
+export default function TabPlayer({ filePath, sessionBpm, onSessionBpmChange }) {
     const containerRef = useRef(null);
     const scrollRef = useRef(null);
     const apiRef = useRef(null);
@@ -287,16 +305,32 @@ export default function TabPlayer({ filePath }) {
 
         (async () => {
             try {
-                const { AlphaTabApi } = await import('@coderline/alphatab');
-                if (dead || !containerRef.current) return;
+                const basePath = getAlphaTabBasePath();
 
-                console.log('[TabPlayer] Initializing AlphaTab v1.8.1...');
+                // Load AlphaTab via <script> tag (UMD build) instead of ES module import.
+                // This bypasses all webpack bundling AND asar ES-module resolution issues.
+                await new Promise((resolve, reject) => {
+                    // If already loaded (e.g. hot reload), skip
+                    if (window.alphaTab?.AlphaTabApi) { resolve(); return; }
+                    const s = document.createElement('script');
+                    s.src = `${basePath}alphaTab.min.js`;
+                    s.onload = resolve;
+                    s.onerror = () => reject(new Error(`Failed to load AlphaTab script from: ${s.src}`));
+                    document.head.appendChild(s);
+                });
+
+                const { AlphaTabApi } = window.alphaTab;
+                if (!AlphaTabApi) throw new Error('AlphaTabApi not found on window.alphaTab after script load');
+                if (dead || !containerRef.current) return;
 
                 const api = new AlphaTabApi(containerRef.current, {
                     core: {
-                        fontDirectory: `${LOCAL_ASSETS}/font/`,
-                        enableLazyLoading: false,       // CRITICAL for Electron
-                        logLevel: 1,                    // Warning level for debug
+                        engine: 'canvas',
+                        useWorker: false,
+                        fontDirectory: `${basePath}font/`,
+                        scriptFile: `${basePath}alphaTab.min.js`, // 🔥 ФИКС: Больше никаких .mjs
+                        enableLazyLoading: false,
+                        logLevel: 0,
                     },
                     player: {
                         enablePlayer: true,
@@ -304,12 +338,20 @@ export default function TabPlayer({ filePath }) {
                         enableUserInteraction: true,
                         enableAnimatedBeatCursor: true,
                         enableElementHighlighting: true,
-                        soundFont: `${LOCAL_ASSETS}/soundfont/sonivox.sf2`,
+                        soundFont: `${basePath}soundfont/sonivox.sf2`,
                         scrollElement: scrollRef.current,
                     },
                     display: {
                         staveProfile: STAVE.SCORE_TAB,
                         scale: 1.0,
+                        width: -1, // -1 means auto-size to container
+                        resources: {
+                            'staffLineColor': '#000000',
+                            'notationColor': '#000000',
+                            'cursorColor': '#4285f4',
+                            'selectionColor': 'rgba(66, 133, 244, 0.2)',
+                            'backgroundColor': '#ffffff'
+                        }
                     },
                     notation: {
                         rhythmMode: RHYTHM.HIDDEN,
@@ -319,10 +361,29 @@ export default function TabPlayer({ filePath }) {
                 api.scoreLoaded.on((score) => {
                     if (dead) return;
                     console.log('[TabPlayer] Score loaded:', score.title, '| Tracks:', score.tracks?.length);
-                    setTracks(score.tracks || []);
+                    const scoreTracks = score.tracks || [];
+                    setTracks(scoreTracks);
                     setTrack(0);
                     setLoaded(true);
                     setError(null);
+
+                    // Explicitly trigger first render after a short delay
+                    // This ensures the container is fully visible and sized
+                    console.log('[TabPlayer] Scheduling first render...');
+                    setTimeout(() => {
+                        if (dead || !apiRef.current) return;
+                        try {
+                            console.log('[TabPlayer] Rendering first track...');
+                            if (scoreTracks.length > 0) {
+                                api.renderTracks([scoreTracks[0]]);
+                            } else {
+                                api.render();
+                            }
+                        } catch (renderErr) {
+                            console.error('[TabPlayer] Render call failed:', renderErr);
+                            setError(`Render failed: ${renderErr.message}`);
+                        }
+                    }, 100);
                 });
 
                 api.renderStarted.on(() => {
@@ -333,6 +394,9 @@ export default function TabPlayer({ filePath }) {
                 api.renderFinished.on(() => {
                     if (dead) return;
                     console.log('[TabPlayer] Render finished!');
+
+                    // Trigger resize to ensure AlphaTab fills the container correctly
+                    window.dispatchEvent(new Event('resize'));
 
                     // Force-style the beat cursor directly on the DOM element
                     // AlphaTab uses transform:scale() for sizing, so we only touch colors
@@ -407,8 +471,13 @@ export default function TabPlayer({ filePath }) {
                 const buf = await window.electronAPI.invoke('fs:read-file', filePath);
                 if (!buf) throw new Error('Empty buffer returned');
 
-                console.log('[TabPlayer] File read, buffer size:', buf.byteLength || buf.length, '- calling api.load()');
-                apiRef.current.load(buf);
+                // Normalize buffer — IPC may serialize Node Buffer as { type:'Buffer', data:[...] }
+                const data = (buf instanceof Uint8Array || buf instanceof ArrayBuffer)
+                    ? buf
+                    : new Uint8Array(buf.data || buf);
+
+                console.log('[TabPlayer] File read, buffer size:', data.byteLength || data.length, '- calling api.load()');
+                apiRef.current.load(data);
             } catch (e) {
                 console.error('[TabPlayer] Load error:', e);
                 setError(e.message);
@@ -430,6 +499,30 @@ export default function TabPlayer({ filePath }) {
         api.updateSettings();
         api.render();
     }, [notes, tabs, loaded, getProfile, getRhythm]);
+
+    // ─────────────────────────────────────────────────────
+    // 3b. Sync external BPM (from Focus tab) → AlphaTab playbackSpeed
+    // ─────────────────────────────────────────────────────
+    useEffect(() => {
+        const api = apiRef.current;
+        if (!api || !loaded || !sessionBpm) return;
+
+        const origTempo = api.score?.tempo || 120;
+        const newSpeed = sessionBpm / origTempo;
+
+        // Only apply if it actually differs (avoid feedback loops)
+        if (Math.abs(newSpeed - (api.playbackSpeed || 1)) > 0.005) {
+            setSpeed(newSpeed);
+            api.playbackSpeed = newSpeed;
+
+            // Also update the UI speedConfig state so the popup and button show the correct BPM
+            setSpeedConfig(prev => ({
+                ...prev,
+                mode: 'fixed',
+                bpm: sessionBpm
+            }));
+        }
+    }, [sessionBpm, loaded]);
 
     // ─────────────────────────────────────────────────────
     // Control handlers
@@ -521,24 +614,27 @@ export default function TabPlayer({ filePath }) {
         const api = apiRef.current;
         if (!api) return;
 
+        let newSpeed = 1.0;
         if (cfg.mode === 'relative') {
-            const s = cfg.pct / 100;
-            setSpeed(s);
-            api.playbackSpeed = s;
+            newSpeed = cfg.pct / 100;
         } else if (cfg.mode === 'fixed') {
-            // Fixed BPM: calculate ratio from original tempo
             const origTempo = api.score?.tempo || 120;
-            const s = cfg.bpm / origTempo;
-            setSpeed(s);
-            api.playbackSpeed = s;
+            newSpeed = cfg.bpm / origTempo;
         } else if (cfg.mode === 'progressive') {
-            // Start from "from" percentage
             progressiveRef.current = { currentPct: cfg.from, passCount: 0 };
-            const s = cfg.from / 100;
-            setSpeed(s);
-            api.playbackSpeed = s;
+            newSpeed = cfg.from / 100;
         }
-    }, []);
+
+        setSpeed(newSpeed);
+        api.playbackSpeed = newSpeed;
+
+        // Emit effective absolute BPM back to SessionView
+        if (onSessionBpmChange) {
+            const origTempo = api.score?.tempo || 120;
+            const effectiveBpm = Math.round(origTempo * newSpeed);
+            onSessionBpmChange(effectiveBpm);
+        }
+    }, [onSessionBpmChange]);
 
     // Progressive speed: increment on playerFinished
     useEffect(() => {
@@ -554,13 +650,18 @@ export default function TabPlayer({ filePath }) {
                 const s = p.currentPct / 100;
                 setSpeed(s);
                 api.playbackSpeed = s;
-                console.log(`[TabPlayer] Progressive speed → ${p.currentPct}%`);
+
+                // Emit effective BPM back to SessionView
+                if (onSessionBpmChange) {
+                    const origTempo = api.score?.tempo || 120;
+                    onSessionBpmChange(Math.round(origTempo * s));
+                }
             }
         };
 
         api.playerFinished?.on(handler);
         return () => api.playerFinished?.off(handler);
-    }, [speedConfig, loop]);
+    }, [speedConfig, loop, onSessionBpmChange]);
 
     // Per-track volume handler
     const doTrackVolume = (idx, value) => {
@@ -582,7 +683,7 @@ export default function TabPlayer({ filePath }) {
     // Render
     // ─────────────────────────────────────────────────────
     return (
-        <div className="flex flex-col h-full bg-[#0F111A] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+        <div className="flex flex-col h-full bg-white rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
 
             {/* ── Toolbar ── */}
             <div className="px-5 py-3 border-b border-white/5 bg-[#13151F] flex flex-wrap items-center gap-3">
@@ -702,24 +803,24 @@ export default function TabPlayer({ filePath }) {
             {/* ── Display (scrollable area) ── */}
             <div ref={scrollRef} className="flex-1 min-h-0 relative overflow-auto bg-white">
                 {error && (
-                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#0F111A] p-8 text-center">
-                        <div className="text-red-400 font-semibold text-lg">Could not display tab</div>
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white p-8 text-center">
+                        <div className="text-red-600 font-semibold text-lg">Could not display tab</div>
                         <div className="text-gray-500 text-sm max-w-sm break-words">{error}</div>
                         <button
                             onClick={() => { setError(null); if (filePath && apiRef.current) { setLoaded(false); apiRef.current.load && window.electronAPI?.invoke('fs:read-file', filePath).then(b => apiRef.current?.load(b)).catch(e => setError(e.message)); } }}
-                            className="flex items-center gap-2 px-5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white text-sm transition-all"
+                            className="flex items-center gap-2 px-5 py-2 bg-black/5 hover:bg-black/10 border border-black/10 rounded-xl text-black text-sm transition-all"
                         >
                             <RefreshCw size={14} /> Retry
                         </button>
                     </div>
                 )}
                 {!loaded && !error && (
-                    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-[#0F111A]">
+                    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-white">
                         <RefreshCw size={28} className="text-blue-500 animate-spin" />
                         <div className="text-gray-500 text-sm">Loading notation…</div>
                     </div>
                 )}
-                <div ref={containerRef} className="at-wrap p-4" />
+                <div ref={containerRef} className="at-wrap p-4 min-h-[600px]" style={{ minHeight: '600px' }} />
             </div>
 
             {/* ── Footer ── */}

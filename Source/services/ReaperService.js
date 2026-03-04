@@ -1,51 +1,24 @@
-const http = require('http');
-const { REAPER_WEB_PORT, REAPER_WEB_HOST, REAPER_PATH } = require('../config/paths');
+const { REAPER_PATH } = require('../config/paths');
 const UserPreferencesService = require('./UserPreferencesService');
+const ReaperFileService = require('./ReaperFileService');
 const fs = require('fs-extra');
 const path = require('path');
 
 class ReaperService {
     constructor() {
-        this.baseUrl = `http://${REAPER_WEB_HOST}:${REAPER_WEB_PORT}/_/`;
         this.sessionActive = false;
-        console.log('ReaperService initialized at:', this.baseUrl);
-    }
-
-    /**
-     * Send a command ID to REAPER
-     * @param {string} commandId - The Action ID (e.g., '_1001', '40044')
-     */
-    async sendCommand(commandId) {
-        return this._fetch(`${commandId}`);
     }
 
     /**
      * Kill Reaper Process
      */
     kill() {
-        console.log("Killing REAPER process...");
         const api = require('child_process');
         try {
             api.execSync('taskkill /F /IM reaper.exe /T');
         } catch (err) {
-            // console.log("Reaper kill error (might be closed):", err.message);
+            // Reaper might already be closed
         }
-    }
-
-    /**
-     * Set Project BPM
-     * @param {number} bpm 
-     */
-    async setBpm(bpm) {
-        return this._fetch(`t/BPM/${bpm}`);
-    }
-
-    /**
-     * Internal fetch wrapper (Deprecating for file-based IPC)
-     */
-    _fetch(endpoint) {
-        console.warn('ReaperService HTTP fetch is disabled. Use File IPC instead.');
-        return Promise.resolve({ success: false, error: 'HTTP IPC Disabled' });
     }
 
     /**
@@ -78,7 +51,19 @@ class ReaperService {
 
             console.log(`Launching REAPER from: ${exePath}`);
 
-            const child = execFile(exePath, (error) => {
+            // Ensure the Lua script is passed as an argument to guarantee execution
+            const { app } = require('electron');
+            const path = require('path');
+            const srcListenerProd = path.join(process.resourcesPath || '', 'scripts', 'reaper_listener.lua');
+            const srcListenerDev = path.join(__dirname, '..', 'scripts', 'reaper_listener.lua');
+            let scriptArg = fs.existsSync(srcListenerProd) ? srcListenerProd : srcListenerDev;
+
+            const args = [];
+            if (fs.existsSync(scriptArg)) {
+                args.push(scriptArg);
+            }
+
+            const child = execFile(exePath, args, (error) => {
                 if (error) {
                     console.error('Error launching REAPER:', error);
                 }
@@ -184,12 +169,19 @@ rc_uri=
         }
 
         const targetBpm = exercise.originalBpm || exercise.bpm;
+        const UserPreferencesService = require('./UserPreferencesService');
+        const prefs = await UserPreferencesService.getPreferences();
+
+        const inputChannel = prefs.general?.inputChannel ?? 2;
+        const recordMonitoring = prefs.general?.recordMonitoring !== false;
 
         const command = {
             action: 'LOAD_EXERCISE',
             bpm: targetBpm,
             backing: backingPath,
-            original: originalPath
+            original: originalPath,
+            inputChannel: inputChannel,
+            recordMonitoring: recordMonitoring
         };
 
         const ReaperFileService = require('./ReaperFileService');
@@ -250,22 +242,18 @@ rc_uri=
     }
 
     async transport(action) {
-        const ReaperFileService = require('./ReaperFileService');
         return ReaperFileService.sendCommand({ action: 'TRANSPORT', command: action });
     }
 
     async setTrackVolume(trackIndex, volume) {
-        const ReaperFileService = require('./ReaperFileService');
         return ReaperFileService.sendCommand({ action: 'SET_VOLUME', trackIndex, value: volume });
     }
 
     async setTrackMute(trackIndex, isMuted) {
-        const ReaperFileService = require('./ReaperFileService');
         return ReaperFileService.sendCommand({ action: 'SET_MUTE', trackIndex, value: isMuted ? 1 : 0 });
     }
 
     async setBpm(bpm) {
-        const ReaperFileService = require('./ReaperFileService');
         return ReaperFileService.sendCommand({ action: 'SET_BPM', bpm });
     }
 

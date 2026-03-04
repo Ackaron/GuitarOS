@@ -25,6 +25,22 @@ class GPService {
             return;
         }
 
+        // Fix frontend file URIs to native OS paths
+        if (filePath.startsWith('file://')) {
+            try {
+                filePath = require('url').fileURLToPath(filePath);
+            } catch (e) {
+                // Fallback for edge cases
+                filePath = decodeURIComponent(filePath.replace(/^file:\/\/\/?/, ''));
+                if (process.platform === 'win32' && filePath.startsWith('/')) {
+                    filePath = filePath.slice(1); // Remove leading slash for Windows drives
+                }
+            }
+        }
+
+        // Also normalize windows slashes
+        filePath = path.normalize(filePath);
+
         try {
             const prefs = await UserPreferencesService.getPreferences();
             const general = prefs.general || {};
@@ -43,14 +59,18 @@ class GPService {
                 return;
             }
 
-            // Primary: OS file association via Electron shell
-            const error = await shell.openPath(filePath);
-            if (error) {
-                console.warn('shell.openPath failed, trying start command:', error);
-                exec(`start "" "${filePath}"`, err => {
-                    if (err) console.error('All GP open strategies failed:', err);
-                });
-            }
+            // Primary: OS file association via explorer.exe to simulate actual Double Click
+            // This bypasses a bug where GP only opens the title screen when using shell.openPath or start
+            exec(`explorer.exe "${filePath}"`, async (err) => {
+                // explorer.exe often returns exit code 1 even when successful. 
+                // DO NOT fall back to shell.openPath here, otherwise it triggers GP to open the splash screen again and break.
+                if (err && err.code !== 1) {
+                    console.warn(`explorer.exe "${filePath}" failed with code ${err.code}, falling back to start command:`, err);
+                    exec(`start "" "${filePath}"`, err2 => {
+                        if (err2) console.error('All GP open strategies failed:', err2);
+                    });
+                }
+            });
         } catch (err) {
             console.error('GPService.openFile error:', err);
         }

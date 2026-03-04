@@ -11,6 +11,9 @@ const PREFS_PATH = path.join(USER_DATA_PATH, 'user_preferences.json');
 
 class UserPreferencesService {
     constructor() {
+        this._pendingSessionState = null;
+        this._sessionWriteTimer = null;
+
         this.defaultPrefs = {
             general: {
                 language: 'ru',
@@ -96,22 +99,36 @@ class UserPreferencesService {
 
     /**
      * Merge sessionState into the `session` key of prefs and persist.
-     * Called frequently during a session — consider debouncing at the IPC layer
-     * if disk I/O becomes a concern.
+     * Debounced: batches rapid updates (e.g. timer ticks) into a single
+     * disk write after 500 ms of inactivity.
      * @param {Object} sessionState - Partial session object to merge
      */
-    async updateSessionState(sessionState) {
-        try {
-            const current = await this.getPreferences();
-            const updated = {
-                ...current,
-                session: { ...current.session, ...sessionState, lastUpdated: Date.now() }
-            };
-            await fs.writeJson(PREFS_PATH, updated, { spaces: 2 });
-            return { success: true };
-        } catch (err) {
-            return { success: false, error: err.message };
-        }
+    updateSessionState(sessionState) {
+        // Accumulate state in memory
+        this._pendingSessionState = {
+            ...(this._pendingSessionState || {}),
+            ...sessionState,
+            lastUpdated: Date.now()
+        };
+
+        // Reset the debounce timer
+        if (this._sessionWriteTimer) clearTimeout(this._sessionWriteTimer);
+
+        this._sessionWriteTimer = setTimeout(async () => {
+            try {
+                const current = await this.getPreferences();
+                const updated = {
+                    ...current,
+                    session: { ...current.session, ...this._pendingSessionState }
+                };
+                await fs.writeJson(PREFS_PATH, updated, { spaces: 2 });
+                this._pendingSessionState = null;
+            } catch (err) {
+                console.error('Session write failed:', err);
+            }
+        }, 500);
+
+        return Promise.resolve({ success: true, pending: true });
     }
 }
 

@@ -36,22 +36,10 @@ function registerDbHandlers() {
         return { success: true };
     });
 
-    ipcMain.handle('db:clear-user', async () => {
-        await clearUser();
-        return { success: true };
-    });
-
     // Logout
     ipcMain.handle('db:logout', async () => {
         await clearUser();
         return { success: true };
-    });
-
-    // Get current profile
-    ipcMain.handle('db:get-profile', async () => {
-        const db = getUserDB();
-        await db.read();
-        return db.data;
     });
 
     // Overwrite the entire DB state (used by sync operations)
@@ -107,7 +95,7 @@ function registerDbHandlers() {
             bpm: newBpm,
             rating,
             oldBpm,
-            actualDuration: actualDuration || duration || 0,
+            actualDuration: typeof actualDuration === 'number' ? actualDuration : (duration || 0),
             plannedDuration: plannedDuration || 0,
             score: score || null
         };

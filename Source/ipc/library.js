@@ -136,7 +136,9 @@ function registerLibraryHandlers() {
             }
             const buffer = await fs.readFile(filePath);
             console.log(`[IPC] fs:read-file: Successfully read ${buffer.length} bytes from "${filePath}"`);
-            return buffer; // Electron automatically converts Buffer to Uint8Array/ArrayBuffer for the renderer
+            // Return a clean Uint8Array — Node Buffer shares a memory pool,
+            // so buffer.buffer may be larger. Slice to exact size for safe IPC transfer.
+            return new Uint8Array(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
         } catch (err) {
             console.error('fs:read-file failed:', err);
             return null;

@@ -1,11 +1,12 @@
 {
   "name": "guitaros-portable",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Guitar learning and practice OS",
   "author": "Ackaron",
   "private": true,
   "main": "main.js",
   "scripts": {
+    "postinstall": "node scripts/copy-alphatab-assets.js",
     "dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
     "build": "next build",
     "start": "electron .",
@@ -16,6 +17,9 @@
     "pack": "electron-builder --dir"
   },
   "build": {
+    "asarUnpack": [
+      "out/alphatab/**"
+    ],
     "appId": "com.guitaros.app",
     "productName": "GuitarOS",
     "win": {
@@ -49,7 +53,8 @@
         "from": "./Apps",
         "to": "Apps",
         "filter": [
-          "**/*"
+          "**/*",
+          "!GuitarPro/**/*"
         ]
       },
       {
