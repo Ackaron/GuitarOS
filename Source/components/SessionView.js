@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, ChevronRight, ChevronLeft } from 'lucide-react';
 import TabPlayer from './TabPlayer';
 import SessionTopNav from './SessionTopNav';
 import SessionFocusTimer from './SessionFocusTimer';
@@ -30,6 +30,7 @@ const SessionView = ({
 
     const [isEditingTarget, setIsEditingTarget] = useState(false);
     const [newTargetBpm, setNewTargetBpm] = useState('');
+    const [isPlaylistCollapsed, setIsPlaylistCollapsed] = useState(false);
 
     const [viewMode, setViewMode] = useState(launchGuitarPro ? 'timer' : 'tab'); // Default to Tab if GP is off
 
@@ -143,9 +144,9 @@ const SessionView = ({
 
     return (
         <div className="w-full h-full p-8 animate-in fade-in zoom-in-95 duration-500 relative overflow-hidden">
-            <div className="h-full grid grid-cols-12 gap-8 max-w-[1600px] mx-auto min-h-0">
+            <div className="h-full flex gap-8 max-w-[1700px] mx-auto min-h-0">
                 {/* LEFT: Focus Mode or Tab View */}
-                <div className="col-span-12 lg:col-span-7 flex flex-col relative min-h-0 overflow-y-auto pr-4 custom-scrollbar pb-12">
+                <div className="flex-1 flex flex-col relative min-h-0 overflow-y-auto pr-4 custom-scrollbar pb-12 transition-all duration-300">
                     <SessionTopNav
                         viewMode={viewMode}
                         setViewMode={setViewMode}
@@ -205,16 +206,28 @@ const SessionView = ({
                     )}
                 </div>
 
-                <div className="col-span-12 lg:col-span-5 flex flex-col h-full max-h-[calc(100vh-100px)]">
-                    <SessionPlaylist
-                        routine={routine}
-                        currentStepIndex={currentStepIndex}
-                        totalMinutes={totalMinutes}
-                        onUpdateTotalTime={onUpdateTotalTime}
-                        onLoadStep={onLoadStep}
-                        onFinishWithFeedback={() => handleFeedbackTrigger(onFinishSession)}
-                        isGuidedMode={isGuidedMode}
-                    />
+                <div className={`${isPlaylistCollapsed ? 'w-20' : 'w-[450px] lg:w-[500px]'} flex flex-col h-full max-h-[calc(100vh-100px)] relative transition-all duration-300`}>
+                    {/* Collapse Toggle Button */}
+                    <button
+                        onClick={() => setIsPlaylistCollapsed(!isPlaylistCollapsed)}
+                        className={`absolute -left-4 top-1/2 -translate-y-1/2 z-50 w-8 h-12 bg-[#1A1D2E] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all shadow-xl`}
+                        title={isPlaylistCollapsed ? "Expand Playlist" : "Collapse Playlist"}
+                    >
+                        {isPlaylistCollapsed ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                    </button>
+
+                    <div className="h-full flex flex-col overflow-hidden">
+                        <SessionPlaylist
+                            routine={routine}
+                            currentStepIndex={currentStepIndex}
+                            totalMinutes={totalMinutes}
+                            onUpdateTotalTime={onUpdateTotalTime}
+                            onLoadStep={onLoadStep}
+                            onFinishWithFeedback={() => handleFeedbackTrigger(onFinishSession)}
+                            isGuidedMode={isGuidedMode}
+                            collapsed={isPlaylistCollapsed}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
