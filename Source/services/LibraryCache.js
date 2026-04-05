@@ -84,6 +84,7 @@ class LibraryCache {
                 originalBpm: i.originalBpm,
                 duration: i.duration,
                 category: i.category,
+                difficulty: i.difficulty || 1,
                 relPath: i.relPath,
                 fsName: i.fsName,
                 parent: i.path.includes('Etude') ? 'exercises' : i.path.includes('Songs') ? 'songs' : 'other'

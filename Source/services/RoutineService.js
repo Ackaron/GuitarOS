@@ -21,12 +21,16 @@ class RoutineService {
         const allItems = catalog.items;
         const pick = arr => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : null;
 
+        const db = getUserDB();
+        await db.read();
+        const dbExercises = db.data.exercises || [];
+
         // 1. First, build the regular session to see what items are actually going to be played.
         const validModules = [];
         let totalValidWeight = 0;
 
         for (const mod of modules) {
-            const { pool, itemName } = this._buildPool(mod, allItems);
+            const { pool, itemName } = this._buildPool(mod, allItems, dbExercises);
             if (pool.length > 0) {
                 validModules.push({ config: mod, pool, slotType: itemName });
                 totalValidWeight += (mod.percentage || 0);
@@ -97,7 +101,9 @@ class RoutineService {
         return await this._mergeProgressionData(routine);
     }
 
-    _buildPool(mod, allItems) {
+    _buildPool(mod, allItems, dbExercises = []) {
+        let result = { pool: [], itemName: 'Unknown' };
+
         switch (mod.type) {
             case 'theory': {
                 const keyTarget = mod.target;
@@ -105,33 +111,59 @@ class RoutineService {
                 const pool = keyTarget
                     ? theoryItems.filter(i => i.key === keyTarget)
                     : theoryItems;
-                return { pool, itemName: `Theory (${keyTarget || 'Random'})` };
+                result = { pool, itemName: `Theory (${keyTarget || 'Random'})` };
+                break;
             }
             case 'technique': {
                 const tags = mod.target;
                 if (tags && tags.length > 0) {
                     const targetTags = Array.isArray(tags) ? tags : [tags];
                     const pool = allItems.filter(i => i.tags && targetTags.some(t => i.tags.includes(t)));
-                    return { pool, itemName: `Technique (${targetTags.join(', ')})` };
+                    result = { pool, itemName: `Technique (${targetTags.join(', ')})` };
+                } else {
+                    result = { pool: allItems.filter(i => i.path.includes('Technique')), itemName: 'Technique (Random)' };
                 }
-                return { pool: allItems.filter(i => i.path.includes('Technique')), itemName: 'Technique (Random)' };
+                break;
             }
             case 'folder': {
-                return { pool: allItems.filter(i => i.path.includes(mod.target)), itemName: mod.target };
+                result = { pool: allItems.filter(i => i.path.includes(mod.target)), itemName: mod.target };
+                break;
             }
             case 'exercise':
-                return this._buildExercisePool(mod, allItems);
+                result = this._buildExercisePool(mod, allItems);
+                break;
             case 'repertoire':
             case 'song': {
                 if (mod.target) {
                     const preciseItem = allItems.find(i => i.id === mod.target);
-                    if (preciseItem) return { pool: [preciseItem], itemName: preciseItem.title };
+                    if (preciseItem) { result = { pool: [preciseItem], itemName: preciseItem.title }; break; }
                 }
-                return { pool: allItems.filter(i => i.parent === 'songs' || i.category === 'Songs'), itemName: 'Random Song' };
+                result = { pool: allItems.filter(i => i.parent === 'songs' || i.category === 'Songs'), itemName: 'Random Song' };
+                break;
             }
-            default:
-                return { pool: [], itemName: 'Unknown' };
         }
+
+        // Apply Mastery and Difficulty Filters
+        if (result.pool.length > 0) {
+            result.pool = result.pool.filter(item => {
+                const dbItem = dbExercises.find(e => e.id === item.id);
+                const isMastered = dbItem ? !!dbItem.isMastered : false;
+                
+                if (mod.excludeMastered && isMastered) return false;
+
+                if (mod.targetDifficulty && mod.targetDifficulty !== 'any') {
+                    const diff = item.difficulty || 1;
+                    if (mod.targetDifficulty === 'beginner' && (diff < 1 || diff > 3)) return false;
+                    if (mod.targetDifficulty === 'intermediate' && (diff < 4 || diff > 6)) return false;
+                    if (mod.targetDifficulty === 'advanced' && (diff < 7 || diff > 8)) return false;
+                    if (mod.targetDifficulty === 'expert' && (diff < 9 || diff > 10)) return false;
+                }
+
+                return true;
+            });
+        }
+
+        return result;
     }
 
     _buildExercisePool(mod, allItems) {

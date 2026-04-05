@@ -126,8 +126,33 @@ function registerDbHandlers() {
                 // Ensure date stays as the first interaction or update to latest? 
                 // Updating to latest is usually better for "lastPlayed" logic
             };
-        } else {
-            item.history.push(historyEntry);
+        }
+
+        // --- MASTERY LOGIC ---
+        // Calculate average score of last 3 sessions to determine isMastered
+        const recentHistory = [...item.history].sort((a, b) => new Date(b.date) - new Date(a.date));
+        let validSessions = 0;
+        let totalScoreSum = 0;
+        
+        for (let i = 0; i < recentHistory.length && validSessions < 3; i++) {
+            const h = recentHistory[i];
+            let scoreVal = null;
+            if (h.score !== undefined && h.score !== null) {
+                scoreVal = h.score;
+            } else if (h.confidence) {
+                scoreVal = (h.confidence / 5) * 100;
+            } else if (h.rating) {
+                scoreVal = h.rating === 'easy' ? 100 : h.rating === 'good' ? 75 : h.rating === 'hard' ? 40 : 50;
+            }
+
+            if (scoreVal !== null) {
+                totalScoreSum += scoreVal;
+                validSessions++;
+            }
+        }
+        
+        if (validSessions >= 3) {
+            item.isMastered = (totalScoreSum / validSessions) > 90;
         }
 
         // Update tracked BPM

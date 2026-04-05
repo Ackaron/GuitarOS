@@ -3,6 +3,7 @@ import { Plus, Trash2, GripVertical, Settings, X, Music, BookOpen, Dumbbell, Zap
 import { Button } from './UI';
 import SearchableSelect from './SearchableSelect';
 import { useLanguage } from '../context/LanguageContext';
+import useStore from '../store/useStore';
 
 export default function ModuleConfig({
     modules,
@@ -17,6 +18,7 @@ export default function ModuleConfig({
     setTotalMinutes
 }) {
     const { t, language } = useLanguage();
+    const { userName } = useStore();
 
     // Get unique folders
     const folders = [...new Set(catalog.items.map(i => i.category).filter(Boolean))].sort();
@@ -263,6 +265,47 @@ export default function ModuleConfig({
                             />
                         )}
                     </div>
+
+                    {/* Target Difficulty & Mastery Filter */}
+                    {(module.type === 'theory' || module.type === 'technique') && (
+                        <div className="pt-3 border-t border-white/[0.05] space-y-3">
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-widest">Target Difficulty</span>
+                                </div>
+                                <select 
+                                    className="w-full bg-[#1A1D24] text-white text-sm rounded-lg px-3 py-2 border border-white/10 outline-none focus:border-red-500/50 transition-colors"
+                                    value={module.targetDifficulty || 'any'}
+                                    onChange={(e) => updateModule(module.id, 'targetDifficulty', e.target.value)}
+                                >
+                                    <option value="any">Любая (Any)</option>
+                                    <option value="beginner">Beginner (1-3)</option>
+                                    <option value="intermediate">Intermediate (4-6)</option>
+                                    <option value="advanced">Advanced (7-8)</option>
+                                    <option value="expert">Expert (9-10)</option>
+                                </select>
+                                {module.targetDifficulty === 'beginner' && (
+                                    <div className="mt-2 text-[10px] text-amber-500/90 leading-tight bg-amber-500/10 p-2 rounded relative before:content-[''] before:absolute before:-top-1 before:left-4 before:border-[3px] before:border-transparent before:border-b-amber-500/10">
+                                        ⚡ {userName || 'Виктор'}, этот уровень уже скорее всего пройден. Для роста выбери Intermediate или выше.
+                                    </div>
+                                )}
+                            </div>
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <div className="relative flex items-center justify-center">
+                                    <input 
+                                        type="checkbox" 
+                                        className="appearance-none w-4 h-4 rounded-[4px] border border-white/20 bg-white/5 checked:bg-purple-500 checked:border-purple-500 transition-all cursor-pointer peer"
+                                        checked={module.excludeMastered || false}
+                                        onChange={(e) => updateModule(module.id, 'excludeMastered', e.target.checked)}
+                                    />
+                                    <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 peer-checked:scale-100 scale-50 transition-all pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">Исключить освоенные (Mastered)</span>
+                            </label>
+                        </div>
+                    )}
 
                     {/* Percentage */}
                     <div className="pt-4 border-t border-white/[0.05]">
